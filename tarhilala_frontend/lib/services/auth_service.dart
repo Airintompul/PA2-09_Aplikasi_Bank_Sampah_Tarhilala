@@ -40,13 +40,21 @@ class AuthService {
 
       var data = jsonDecode(response.body);
 
-      return _result(
-        success: data["success"] ?? (response.statusCode == 200),
-        message: data["message"] ?? "Terjadi kesalahan",
-        data: data["data"],
-      );
+      // 🔥 FIX DI SINI
+      return {
+        "success": data["success"] ?? (response.statusCode == 200),
+        "message": data["message"] ?? "Terjadi kesalahan",
+        "data": data["data"],
+        "token": data["token"],
+      };
+
     } catch (e) {
-      return _result(success: false, message: "Gagal menghubungi server");
+      return {
+        "success": false,
+        "message": "Gagal menghubungi server",
+        "data": null,
+        "token": null,
+      };
     }
   }
 
@@ -68,29 +76,36 @@ class AuthService {
     return res;
   }
 
-  // ===============================================================
-  // 🔧 LOGIN USER
-  // ===============================================================
+    // ===============================================================
+    // 🔧 LOGIN USER
+    // ===============================================================
   static Future<Map<String, dynamic>> loginUser(String email, String password) async {
     var res = await _post("/user/login", {
       "email": email,
       "password": password,
     });
 
-    if (res["success"] == true && res["data"] != null) {
+    print("LOGIN FULL RESPONSE: $res");
+
+    if (res["success"] == true) {
       SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      String token = res["token"] ?? ""; 
+
+      print("TOKEN LOGIN: $token");
+
+      await prefs.setString("token", token);
 
       var user = res["data"];
 
-      await prefs.setString("token", res["data"]["token"] ?? "");
-      await prefs.setString("role", user["role"] ?? "nasabah");
-
+      await prefs.setInt("user_id", user["id"]);
       await prefs.setString("name", user["nama"] ?? "");
       await prefs.setString("email", user["email"] ?? "");
+      await prefs.setString("role", user["role"] ?? "nasabah");
     }
 
     return res;
-}
+  }
 
   // ===============================================================
   // 🔧 REGISTER

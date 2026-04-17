@@ -28,7 +28,7 @@ class ProductController extends Controller
 
         if ($request->hasFile('gambar')) {
             $file = $request->file('gambar');
-            $nama_file = time() . "_" . $file->getClientOriginalName();
+            $nama_file = time() . "." . $file->getClientOriginalExtension();
             $file->move(public_path('assets/img/products'), $nama_file);
             $data['gambar'] = 'assets/img/products/' . $nama_file;
         }
@@ -57,7 +57,7 @@ class ProductController extends Controller
             }
 
             $file = $request->file('gambar');
-            $nama_file = time() . "_" . $file->getClientOriginalName();
+            $nama_file = time() . "." . $file->getClientOriginalExtension();
             $file->move(public_path('assets/img/products'), $nama_file);
             $data['gambar'] = 'assets/img/products/' . $nama_file;
         }
@@ -79,5 +79,21 @@ class ProductController extends Controller
         $product->delete();
 
         return redirect()->back()->with('success', 'Produk berhasil dihapus!');
+    }
+
+    public function apiIndex()
+    {
+        $products = JenisSampah::orderBy('created_at', 'desc')->get();
+
+        foreach ($products as $item) {
+            if ($item->gambar) {
+                $item->gambar = url($item->gambar);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $products
+        ]);
     }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import 'change_email_page.dart';
+import '../user/chat_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -133,7 +134,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   const SizedBox(height: 20),
 
-                  _menuItem(Icons.chat, "Chat Admin", () {}),
+                  _menuItem(Icons.chat, "Chat Admin", () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ChatPage(),
+                      ),
+                    );
+                  }),
                   _menuItem(Icons.lock, "Ubah Password", () {
                     Navigator.push(
                       context,

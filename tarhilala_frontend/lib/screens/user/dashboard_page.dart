@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/product_service.dart';
+import '../../services/news_service.dart';
 import 'widgets/bottom_navbar.dart';
 import 'profile_page.dart';
+import '../user/semua_sampah_page.dart';
+import '../user/detail_sampah_page.dart';
+import '../user/detail_berita_page.dart';
+import '../user/semua_berita_page.dart';
 
 class UserDashboardPage extends StatefulWidget {
   @override
@@ -10,6 +16,32 @@ class UserDashboardPage extends StatefulWidget {
 
 class _UserDashboardPageState extends State<UserDashboardPage> {
   int currentIndex = 0;
+
+  List hargaSampah = [];
+  List berita = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadHargaSampah();
+    loadBerita();
+  }
+
+  Future<void> loadHargaSampah() async {
+    final data = await ProductService.getHargaSampah();
+
+    setState(() {
+      hargaSampah = data;
+    });
+  }
+
+  Future<void> loadBerita() async {
+    final data = await NewsService.getBerita();
+
+    setState(() {
+      berita = data;
+    });
+  }
 
   void logout(BuildContext context) async {
     await AuthService.logout();
@@ -36,10 +68,8 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade200,
-
+      backgroundColor: Colors.white,
       body: _getPage(),
-
       bottomNavigationBar: BottomNavbar(
         currentIndex: currentIndex,
         onTap: (index) {
@@ -49,14 +79,13 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     );
   }
 
-  // ================= DASHBOARD CONTENT =================
   Widget _dashboardContent() {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
-          // ================= HEADER =================
+          /// HEADER
           Container(
             width: double.infinity,
             padding: const EdgeInsets.only(top: 60, bottom: 40),
@@ -103,7 +132,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
 
           const SizedBox(height: 20),
 
-          // ================= BOX BIRU =================
+          /// BOX SALDO
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
@@ -125,7 +154,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
 
           const SizedBox(height: 20),
 
-          // ================= MENU =================
+          /// MENU GRID
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 25),
             child: GridView.count(
@@ -136,50 +165,112 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
               crossAxisSpacing: 15,
               childAspectRatio: 0.74,
               children: [
-                menuItem("Jual Sampah"),
-                menuItem("Jadwal\nPenjemputan"),
-                menuItem("Panduan\nJual Sampah"),
-                menuItem("Harga\nSampah"),
-                menuItem("Bantuan"),
-                menuItem("Transaksi"),
-                menuItem("Reward"),
-                menuItem("Poin"),
+
+                menuItem(Icons.recycling, "Jual Sampah", Colors.blue),
+                menuItem(Icons.local_shipping, "Jadwal\nPenjemputan", Colors.orange),
+                menuItem(Icons.menu_book, "Panduan\nJual Sampah", Colors.green),
+                menuItem(Icons.attach_money, "Harga\nSampah", Colors.blueAccent),
+
+                menuItem(Icons.support_agent, "Bantuan", Colors.red),
+                menuItem(Icons.receipt_long, "Transaksi", Colors.purple),
+                menuItem(Icons.card_giftcard, "Reward", Colors.deepPurple),
+                menuItem(Icons.monetization_on, "Poin", Colors.amber),
+
               ],
             ),
           ),
 
           const SizedBox(height: 25),
 
-          // ================= HARGA =================
-          sectionTitle("Harga Sampah"),
+          /// HARGA SAMPAH
+          sectionTitleHarga("Harga Sampah"),
 
           const SizedBox(height: 15),
 
           SizedBox(
-            height: 170,
-            child: ListView(
+            height: 180,
+            child: ListView.builder(
               padding: const EdgeInsets.only(left: 20),
               scrollDirection: Axis.horizontal,
-              children: [
-                hargaCard(Icons.recycling),
-                hargaCard(Icons.delete),
-              ],
+              itemCount: hargaSampah.length,
+              itemBuilder: (context, index) {
+                return hargaCard(hargaSampah[index]);
+              },
             ),
           ),
 
           const SizedBox(height: 25),
 
-          // ================= BERITA =================
-          sectionTitle("Berita Pilihan"),
+          /// BERITA
+          sectionTitleBerita("Berita Pilihan"),
 
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Container(
-              height: 170,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
+          const SizedBox(height: 15),
+
+          SizedBox(
+            height: 200,
+            child: ListView.builder(
+              padding: const EdgeInsets.only(left: 20),
+              scrollDirection: Axis.horizontal,
+              itemCount: berita.length,
+              itemBuilder: (context, index) {
+
+                final item = berita[index];
+
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DetailBeritaPage(data: item),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 250,
+                    margin: const EdgeInsets.only(right: 15),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 6,
+                        )
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(18),
+                          ),
+                          child: Image.network(
+                            "http://10.0.2.2:8000/${item['thumbnail']}",
+                            height: 120,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+
+                        Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Text(
+                            item['judul'],
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
 
@@ -189,17 +280,96 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     );
   }
 
-  // ================= MENU ITEM =================
-  Widget menuItem(String title) {
+  /// TITLE HARGA SAMPAH
+  Widget sectionTitleHarga(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SemuaSampahPage(),
+                ),
+              );
+            },
+            child: const Text(
+              "Lihat Semua",
+              style: TextStyle(
+                color: Colors.blue,
+                fontSize: 14,
+              ),
+            ),
+          ),
+
+        ],
+      ),
+    );
+  }
+
+  /// TITLE BERITA (SUDAH ADA LIHAT SEMUA)
+  Widget sectionTitleBerita(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SemuaBeritaPage(),
+                ),
+              );
+            },
+            child: const Text(
+              "Lihat Semua",
+              style: TextStyle(
+                color: Colors.blue,
+                fontSize: 14,
+              ),
+            ),
+          ),
+
+        ],
+      ),
+    );
+  }
+
+  /// MENU ITEM
+  Widget menuItem(IconData icon, String title, Color color) {
     return Column(
       children: [
         Container(
           width: 55,
           height: 55,
           decoration: BoxDecoration(
-            color: Colors.black,
+            color: color,
             borderRadius: BorderRadius.circular(15),
           ),
+          child: Icon(icon, color: Colors.white),
         ),
         const SizedBox(height: 6),
         SizedBox(
@@ -208,44 +378,73 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             title,
             textAlign: TextAlign.center,
             maxLines: 2,
-            style: const TextStyle(fontSize: 11, height: 1.2),
+            style: const TextStyle(fontSize: 11),
           ),
         ),
       ],
     );
   }
 
-  // ================= TITLE =================
-  Widget sectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+  /// CARD HARGA SAMPAH
+  Widget hargaCard(Map item) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DetailSampahPage(data: item),
           ),
-          const Text(
-            "Lihat Semua",
-            style: TextStyle(color: Colors.blue, fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
+        );
+      },
+      child: Container(
+        width: 140,
+        margin: const EdgeInsets.only(right: 15),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xff9fb6cc),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
 
-  // ================= CARD =================
-  Widget hargaCard(IconData icon) {
-    return Container(
-      width: 180,
-      margin: const EdgeInsets.only(right: 15),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade100,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Center(
-        child: Icon(icon, size: 70, color: Colors.blue.shade700),
+            Container(
+              width: 65,
+              height: 65,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Image.network(
+                  item['gambar'],
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(Icons.recycling, size: 40);
+                  },
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            Text(
+              item['nama'] ?? '',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+
+            const SizedBox(height: 4),
+
+            Text(
+              "Rp ${item['harga_per_kg']}/Kg",
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }
