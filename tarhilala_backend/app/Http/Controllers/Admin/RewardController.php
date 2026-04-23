@@ -72,4 +72,10 @@ class RewardController extends Controller
         $reward->delete();
         return back()->with('success', 'Reward dihapus');
     }
+
+    public function apiRewards()
+    {
+        $rewards = Reward::latest()->get();
+        return response()->json($rewards);
+    }
 }

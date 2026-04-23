@@ -38,9 +38,9 @@ class UserAuthController extends Controller
 
     public function login(Request $request)
     {
-        $user = User::where('email', $request->email)
-                    ->where('role', 'nasabah')
-                    ->first();
+    $user = User::where('email', $request->email)
+                ->whereIn('role', ['nasabah', 'petugas'])
+                ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([

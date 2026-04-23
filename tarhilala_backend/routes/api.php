@@ -7,6 +7,9 @@ use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Api\BeritaController;
+use App\Http\Controllers\Api\NasabahSetoranController;
+use App\Http\Controllers\Admin\RewardController;
+use App\Models\Reward;
 
 Route::post('/admin/login', [AdminAuthController::class, 'login']);
 Route::post('/user/login', [UserAuthController::class, 'login']);
@@ -26,3 +29,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/chat/messages/{id}', [ChatController::class, 'getMessages']);
     Route::post('/chat/send', [ChatController::class, 'sendMessage']);
 });
+
+Route::prefix('nasabah')->group(function () {
+    // 1. Ambil semua riwayat setoran milik nasabah tertentu
+    Route::get('/setoran/{nasabah_id}', [NasabahSetoranController::class, 'index']);
+
+    // 2. Buat request penjemputan baru (Langkah 1-5 alur Anda)
+    Route::post('/setoran/store', [NasabahSetoranController::class, 'store']);
+
+    // 3. Lihat detail satu setoran (termasuk detail jenis sampah & tracking)
+    Route::get('/setoran/detail/{id}', [NasabahSetoranController::class, 'show']);
+
+    // 4. Batalkan request (Hanya jika status masih 'menunggu')
+    Route::put('/setoran/cancel/{id}', [NasabahSetoranController::class, 'cancel']);
+});
+
+// Master data untuk dropdown di Flutter
+Route::get('/jenis-sampah', function() {
+    return App\Models\JenisSampah::all();
+});
+
+Route::get('/rewards', [RewardController::class, 'apiRewards']);

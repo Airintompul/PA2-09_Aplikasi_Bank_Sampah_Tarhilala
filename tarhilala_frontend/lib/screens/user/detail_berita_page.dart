@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:tarhilala_frontend/screens/user/widgets/top_navbar.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 class DetailBeritaPage extends StatelessWidget {
   final Map data;
@@ -7,80 +9,66 @@ class DetailBeritaPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mengambil daftar berita terkait dari data jika ada, jika tidak ada pakai list kosong
     List beritaTerkait = data['berita_terkait'] ?? [];
 
+    String rawDate = data['created_at'] ?? data['tanggal'] ?? DateTime.now().toString();
+    String waktuRelatifUtama = timeago.format(DateTime.parse(rawDate), locale: 'id');
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F9FA),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// --- HEADER SESUAI KODE ANDA ---
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(top: 60, bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade800,
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(40),
-                ),
-              ),
-              child: Column(
+            const TopNavbar(),
+
+            /// --- HEADER: TOMBOL BACK & SEARCH BAR RAPI ---
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+              child: Row(
                 children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 350,
-                        height: 70,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            )
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        top: -20,
-                        child: Image.asset(
-                          "assets/images/logo_tarhilala.png",
-                          height: 130,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 25),
-                  
-                  /// BAR BERITA PILIHAN
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 25),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade200,
-                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 5,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
                       ),
-                      child: const Row(
+                      child: const Icon(Icons.arrow_back_ios_new, 
+                          size: 18, color: Colors.black87),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Row(
                         children: [
-                          Icon(Icons.undo, color: Color(0xFF154C8C), size: 20),
-                          SizedBox(width: 10),
+                          Icon(Icons.search, size: 20, color: Colors.grey.shade400),
+                          const SizedBox(width: 10),
                           Text(
-                            "Berita Pilihan",
-                            style: TextStyle(
-                              color: Colors.black87,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            "Cari berita...",
+                            style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
                           ),
-                          Spacer(),
-                          Icon(Icons.search, color: Colors.black54),
                         ],
                       ),
                     ),
@@ -89,132 +77,127 @@ class DetailBeritaPage extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 15),
 
-            /// GAMBAR UTAMA DINAMIS
-            Image.network(
-              "http://10.0.2.2:8000/${data['thumbnail']}",
-              width: double.infinity,
-              height: 250,
-              fit: BoxFit.cover,
-            ),
-
-            const SizedBox(height: 20),
-
-            /// JUDUL DINAMIS
+            // GAMBAR UTAMA
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                data['judul'] ?? "",
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: Image.network(
+                  "http://10.0.2.2:8000/storage/${data['gambar'] ?? data['thumbnail']}",
+                  width: double.infinity,
+                  height: 230,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 230,
+                    width: double.infinity,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.image_not_supported, size: 50),
+                  ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 20),
 
-            /// METADATA DINAMIS (Contoh: Penulis & Tanggal)
+            // JUDUL BERITA
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Text(
-                    data['penulis'] ?? "Tarhilala News",
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                  const Text("  .  "),
-                  Text(
-                    data['tanggal'] ?? "Baru saja",
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                ],
+              child: Text(
+                data['judul'] ?? "Tanpa Judul",
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  height: 1.3,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // METADATA
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                "Tarhilala News  •  $waktuRelatifUtama",
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
               ),
             ),
 
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Divider(thickness: 1, height: 30),
+              child: Divider(thickness: 0.8, height: 35, color: Color(0xFFEEEEEE)),
             ),
 
-            /// ISI BERITA DINAMIS
+            // ISI BERITA
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
-                data['isi'] ?? "",
+                data['isi'] ?? "Tidak ada konten.",
                 textAlign: TextAlign.justify,
-                style: const TextStyle(
-                  fontSize: 15,
+                style: TextStyle(
+                  fontSize: 14,
                   height: 1.6,
+                  color: Colors.black.withOpacity(0.8),
                 ),
               ),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 35),
 
-            /// BAGIAN BERITA TERKAIT (Dinamis dari List)
+            // BERITA TERKAIT SECTION
             if (beritaTerkait.isNotEmpty) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
                   "Berita Terkait",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 15),
               
-              // Looping berita lainnya
               ...beritaTerkait.map((item) {
+                String rawItemDate = item['created_at'] ?? item['tanggal'] ?? DateTime.now().toString();
+                String waktuRelatifItem = timeago.format(DateTime.parse(rawItemDate), locale: 'id');
+
                 return Padding(
-                  padding: const EdgeInsets.only(left: 20, right: 20, bottom: 15),
+                  padding: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade100),
                     ),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
-                            "http://10.0.2.2:8000/${item['thumbnail']}",
-                            width: 80,
-                            height: 80,
+                            "http://10.0.2.2:8000/storage/${item['gambar'] ?? item['thumbnail']}",
+                            width: 80, height: 80,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) => 
-                              Container(width: 80, height: 80, color: Colors.grey[300]),
+                              Container(width: 80, height: 80, color: Colors.grey[200]),
                           ),
                         ),
-                        const SizedBox(width: 15),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                item['kategori'] ?? "Berita",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue.shade800,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
                                 item['judul'] ?? "",
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                "${item['penulis'] ?? 'Admin'} . ${item['tanggal'] ?? ''}",
-                                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                                "Tarhilala News  •  $waktuRelatifItem",
+                                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                               ),
                             ],
                           ),
@@ -226,7 +209,7 @@ class DetailBeritaPage extends StatelessWidget {
               }).toList(),
             ],
 
-            const SizedBox(height: 40),
+            const SizedBox(height: 50),
           ],
         ),
       ),

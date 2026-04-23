@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\ChatMessage;
+use App\Models\ChatRoom;
+use App\Models\KontenEdukasi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -70,6 +73,27 @@ class EmployeeController extends Controller
     public function destroy($id)
     {
         $employee = User::findOrFail($id);
+
+        // hapus semua pesan chat dalam room user
+        $rooms = ChatRoom::where('admin_id', $id)
+            ->orWhere('nasabah_id', $id)
+            ->get();
+
+        foreach ($rooms as $room) {
+            ChatMessage::where('chat_room_id', $room->id)->delete();
+        }
+
+        // hapus chat room
+        ChatRoom::where('admin_id', $id)->delete();
+        ChatRoom::where('nasabah_id', $id)->delete();
+
+        // hapus pesan langsung dari user
+        ChatMessage::where('pengirim_id', $id)->delete();
+
+        // hapus konten edukasi yang ditulis user
+        KontenEdukasi::where('penulis_id', $id)->delete();
+
+        // hapus user
         $employee->delete();
 
         return redirect()->back()->with('success', 'Petugas berhasil dihapus!');
