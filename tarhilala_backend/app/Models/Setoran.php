@@ -22,4 +22,10 @@ class Setoran extends Model
     public function nasabah() {
         return $this->belongsTo(User::class, 'nasabah_id');
     }
+
+    public function jadwal()
+    {
+        // Menghubungkan ke tabel jadwal_penjemputan melalui kolom jadwal_id
+        return $this->belongsTo(JadwalPenjemputan::class, 'jadwal_id');
+    }
 }
