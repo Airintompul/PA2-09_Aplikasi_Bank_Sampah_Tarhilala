@@ -30,16 +30,22 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  image_picker: ^1.0.4
+  geolocator: ^10.1.0
+  flutter_map: ^6.1.0 # Peta Gratis OpenStreetMap
+  latlong2: ^0.9.0    # Helper koordinat
+  geocoding: ^3.0.0   # Mengubah koordinat jadi nama jalan (Gratis)
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  http: ^0.13.6
+  http: 1.2.1
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  timeago: ^3.7.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -55,6 +61,18 @@ dev_dependencies:
 flutter:
   assets:
   - assets/images/logo_tarhilala.png
+  - assets/images/1.png
+  - assets/images/2.png
+  - assets/images/3.png
+  - assets/images/4.png
+  - assets/images/kain_bekas.jpeg
+  - assets/images/kayu.jpg
+  - assets/images/obat_obatan.jpg
+  - assets/images/pampres_bekas.jpeg
+  - assets/images/sampah_medis.png
+  - assets/images/sisa_makanan.png
+  - assets/images/driver.png
+    
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

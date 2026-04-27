@@ -1,0 +1,12 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Wallet extends Model
+{
+    protected $table = 'wallet';
+    protected $fillable = ['user_id', 'account_type'];
+    public $timestamps = false;
+}

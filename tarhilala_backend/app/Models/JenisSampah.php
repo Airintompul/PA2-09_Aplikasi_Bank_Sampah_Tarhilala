@@ -9,7 +9,7 @@ class JenisSampah extends Model
 {
     use HasFactory;
 
-    protected $table = 'jenis_sampah'; // Nama tabel di database
+    protected $table = 'jenis_sampah';
 
     protected $fillable = [
         'nama',
@@ -18,4 +18,15 @@ class JenisSampah extends Model
         'harga_per_kg',
         'gambar',
     ];
+
+    protected $appends = ['gambar_url'];
+
+    public function getGambarUrlAttribute()
+    {
+        if ($this->gambar) {
+            return url($this->gambar);
+        }
+
+        return null;
+    }
 }

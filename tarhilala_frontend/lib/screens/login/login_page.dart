@@ -57,25 +57,20 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => loading = true);
 
-    var response = await AuthService.loginAdmin(email.text, password.text);
-
-    if (response['data'] == null) {
-      response = await AuthService.loginUser(email.text, password.text);
-    }
+    var response = await AuthService.login(email.text, password.text);
 
     setState(() => loading = false);
 
-    if (response['data'] != null) {
+    if (response['success'] == true) {
       String role = response['data']['role'];
-      Navigator.pushReplacementNamed(
-        context,
-        role == 'admin' ? '/admin' : '/user',
-      );
+
+      if (role == "petugas") {
+        Navigator.pushReplacementNamed(context, '/petugas');
+      } else {
+        Navigator.pushReplacementNamed(context, '/user');
+      }
     } else {
       String message = response['message'] ?? "Login gagal";
-      if (response['errors'] != null) {
-        message = response['errors'].toString();
-      }
       showCustomSnackBar(message);
     }
   }
@@ -111,7 +106,6 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Color(0xFFBFC9D6),
-
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -148,7 +142,10 @@ class _LoginPageState extends State<LoginPage> {
 
                     Text(
                       "Please Login to Your Account",
-                      style: TextStyle(fontSize: 13, color: Colors.black54),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
                     ),
 
                     SizedBox(height: 25),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../login/login_page.dart';
-import '../admin/dashboard_page.dart';
 import '../user/dashboard_page.dart';
+import '../petugas/dashboard_page.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -56,16 +56,20 @@ class _SplashScreenState extends State<SplashScreen>
 
     String? role = await AuthService.getRole();
 
-    if (role == 'admin') {
+    if (role == 'petugas') {
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => AdminDashboardPage()),
+        MaterialPageRoute(builder: (_) => PetugasDashboardPage()),
       );
+
     } else {
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => UserDashboardPage()),
       );
+
     }
   }
 

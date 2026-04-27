@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tarhilala_frontend/screens/user/widgets/top_navbar.dart';
 import '../../services/auth_service.dart';
+import '../user/widgets/top_navbar.dart';
 import 'change_email_page.dart';
+import '../user/chat_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -41,49 +44,7 @@ class _ProfilePageState extends State<ProfilePage> {
           // ======================================================
           //              HEADER SAMA DENGAN DASHBOARD
           // ======================================================
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.only(top: 60, bottom: 40),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade800,
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(40),
-              ),
-            ),
-            child: Column(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 350,
-                      height: 70,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
-                          )
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      top: -20,
-                      child: Image.asset(
-                        "assets/images/logo_tarhilala.png",
-                        height: 130,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          const TopNavbar(),
 
           // ======================================================
           //                      BODY
@@ -133,7 +94,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   const SizedBox(height: 20),
 
-                  _menuItem(Icons.chat, "Chat Admin", () {}),
+                  _menuItem(Icons.chat, "Chat Admin", () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ChatPage(),
+                      ),
+                    );
+                  }),
                   _menuItem(Icons.lock, "Ubah Password", () {
                     Navigator.push(
                       context,
