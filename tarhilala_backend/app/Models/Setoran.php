@@ -23,9 +23,13 @@ class Setoran extends Model
         return $this->belongsTo(User::class, 'nasabah_id');
     }
 
+    public function aiValidation()
+    {
+        return $this->hasOne(AiValidation::class, 'setoran_id');
+    }
+
     public function jadwal()
     {
-        // Menghubungkan ke tabel jadwal_penjemputan melalui kolom jadwal_id
         return $this->belongsTo(JadwalPenjemputan::class, 'jadwal_id');
     }
 }

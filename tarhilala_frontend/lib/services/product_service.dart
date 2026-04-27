@@ -5,15 +5,16 @@ class ProductService {
 
   static const baseUrl = "http://10.0.2.2:8000/api";
 
-  static Future<List> getHargaSampah() async {
-    final response = await http.get(Uri.parse("$baseUrl/harga-sampah"));
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['data'];
-    } else {
-      return [];
+  // PASTIKAN URL NYA BENAR (Gunakan IP 10.0.2.2 untuk emulator)
+    static Future<List> getHargaSampah() async {
+      final response = await http.get(Uri.parse("http://10.0.2.2:8000/api/harga-sampah"));
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body)['data']; // Pastikan sesuai struktur JSON Laravel Anda
+      } else {
+        // Cetak ini untuk melihat HTML error jika gagal
+        print("Error Server: ${response.body}"); 
+        return [];
+      }
     }
-  }
-
 }

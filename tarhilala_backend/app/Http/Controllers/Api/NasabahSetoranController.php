@@ -10,73 +10,104 @@ use Illuminate\Support\Str;
 
 class NasabahSetoranController extends Controller
 {
+    public function index($nasabah_id)
+{
+    try {
+        // Ambil data setoran milik nasabah tertentu
+        $data = \App\Models\Setoran::where('nasabah_id', $nasabah_id)
+                ->orderBy('tanggal_pengajuan', 'desc')
+                ->get();
+
+        return response()->json($data, 200);
+    } catch (\Exception $e) {
+        // Kirim error sebagai JSON agar Flutter tidak FormatException
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+}
     // LANGKAH 1 - 5: NASABAH MENGIRIM REQUEST (DINAMIS)
     public function store(Request $request)
-    {
-        try {
-            return DB::transaction(function () use ($request) {
+{
+    try {
+        return DB::transaction(function () use ($request) {
 
-                // Cek apakah Nasabah benar-benar ada di DB
-                $nasabah = User::findOrFail($request->nasabah_id);
+            // 1. Validasi User
+            $nasabah = User::find($request->nasabah_id);
+            if (!$nasabah) {
+                return response()->json(['status' => 'error', 'message' => 'Nasabah ID tidak ditemukan di database.'], 404);
+            }
 
-                // 1. Simpan Header Setoran
-                $setoran = Setoran::create([
-                    'nasabah_id'        => $nasabah->id,
-                    'estimasi_berat'    => $request->estimasi_berat,
-                    'metode_pembayaran' => $request->metode_pembayaran,
-                    'lokasi_lat'        => $request->lokasi_lat,
-                    'lokasi_lng'        => $request->lokasi_lng,
-                    'status'            => 'menunggu',
-                    'catatan'           => $request->catatan,
-                    'tanggal_pengajuan' => now()
-                ]);
+            // 2. Simpan Header Setoran
+            // PASTIKAN jadwal_id di DB sudah NULLABLE
+            $setoran = Setoran::create([
+                'nasabah_id'        => $nasabah->id,
+                'estimasi_berat'    => $request->estimasi_berat,
+                'metode_pembayaran' => $request->metode_pembayaran,
+                'lokasi_lat'        => $request->lokasi_lat,
+                'lokasi_lng'        => $request->lokasi_lng,
+                'status'            => 'menunggu',
+                'catatan'           => $request->catatan,
+                'tanggal_pengajuan' => now()
+            ]);
 
-                // 2. Simpan Detail Sampah secara Dinamis (Looping dari input Flutter)
-                $items = json_decode($request->items, true);
-                if ($items) {
-                    foreach ($items as $item) {
-                        // Ambil Harga dari database secara dinamis berdasarkan jenis_sampah_id
-                        $jenis = JenisSampah::findOrFail($item['id']);
-
-                        DetailSetoran::create([
-                            'setoran_id'      => $setoran->id,
-                            'jenis_sampah_id' => $jenis->id,
-                            'berat'           => $item['berat'],
-                            'harga_satuan'    => $jenis->harga_per_kg, // Dinamis dari tabel master
-                            'subtotal'        => $item['berat'] * $jenis->harga_per_kg
-                        ]);
+            // 3. Simpan Detail Sampah
+            $items = json_decode($request->items, true);
+            if (!empty($items)) {
+                foreach ($items as $item) {
+                    $jenis = JenisSampah::find($item['id']);
+                    if (!$jenis) {
+                        throw new \Exception("Jenis sampah dengan ID " . $item['id'] . " tidak ada.");
                     }
-                }
 
-                // 3. Upload Foto & 4. Validasi AI
-                if ($request->hasFile('foto')) {
-                    $path = $request->file('foto')->store('uploads/setoran', 'public');
-                    FotoSetoran::create(['setoran_id' => $setoran->id, 'image_path' => $path]);
-
-                    AiValidation::create([
-                        'setoran_id'    => $setoran->id,
-                        'image_path'    => $path,
-                        'ai_class'      => $request->ai_class,
-                        'ai_confidence' => $request->ai_confidence,
+                    DetailSetoran::create([
+                        'setoran_id'      => $setoran->id,
+                        'jenis_sampah_id' => $jenis->id,
+                        'berat'           => $item['berat'],
+                        'harga_satuan'    => $jenis->harga_per_kg,
+                        'subtotal'        => $item['berat'] * $jenis->harga_per_kg
                     ]);
                 }
+            }
 
-                // 5. Notifikasi ke Admin (Dinamis: Mencari user dengan role 'admin' pertama di DB)
-                $admin = User::where('role', 'admin')->first();
-                if ($admin) {
-                    Notifikasi::create([
-                        'user_id' => $admin->id,
-                        'judul'   => 'Request Setoran Baru',
-                        'pesan'   => 'Ada request baru dari nasabah: ' . $nasabah->nama
-                    ]);
-                }
+            // 4. Upload Foto & AI
+            if ($request->hasFile('foto')) {
+                $path = $request->file('foto')->store('uploads/setoran', 'public');
+                FotoSetoran::create(['setoran_id' => $setoran->id, 'image_path' => $path]);
 
-                return response()->json(['status' => 'success', 'message' => 'Request berhasil dikirim', 'id' => $setoran->id], 201);
-            });
-        } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-        }
+                AiValidation::create([
+                    'setoran_id'    => $setoran->id,
+                    'image_path'    => $path,
+                    'ai_class'      => $request->ai_class ?? 'Unknown',
+                    'ai_confidence' => $request->ai_confidence ?? 0,
+                ]);
+            }
+
+            // 5. Notifikasi Admin (Gunakan first agar tidak crash jika admin kosong)
+            $admin = User::where('role', 'admin')->first();
+            if ($admin) {
+                Notifikasi::create([
+                    'user_id' => $admin->id,
+                    'judul'   => 'Request Setoran Baru',
+                    'pesan'   => 'Ada request baru dari nasabah: ' . $nasabah->nama
+                ]);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Request penjemputan berhasil dikirim!',
+                'id' => $setoran->id
+            ], 201);
+        });
+    } catch (\Exception $e) {
+        // INI KUNCI AGAR TIDAK MUNCUL HTML ERROR DI FLUTTER
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Gagal simpan: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     // LANGKAH 10 - 15: DRIVER SELESAIKAN PENJEMPUTAN (DINAMIS)
     public function finishPickup(Request $request, $id)

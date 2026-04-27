@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Setoran;
 use App\Models\GpsLog;
 use App\Models\DetailSetoran;
+use App\Models\JenisSampah;
+use App\Models\AiValidation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http; // Wajib diimport untuk memanggil Microservice
 
@@ -16,7 +18,7 @@ class SetoranController extends Controller
      */
     public function index()
     {
-        $requests = Setoran::with(['nasabah:id,nama', 'jadwal.driver:id,nama'])
+        $requests = Setoran::with(['nasabah:id,nama', 'jadwal.driver:id,nama', 'aiValidation'])
             ->orderBy('tanggal_pengajuan', 'desc')
             ->get();
 
@@ -25,6 +27,18 @@ class SetoranController extends Controller
             'data' => $requests
         ], 200);
     }
+
+    public function verifyAi(Request $request, $id)
+{
+    $validation = \App\Models\AiValidation::where('setoran_id', $id)->firstOrFail();
+
+    $validation->update([
+        'is_correct' => $request->is_correct, // boolean: 1 (Benar), 0 (Salah)
+        'admin_class' => $request->admin_class // Input teks jika AI salah menebak
+    ]);
+
+    return response()->json(['status' => 'success', 'message' => 'Validasi AI berhasil disimpan']);
+}
 
     /**
      * Memperbarui status penjemputan dan mengirim data ke Microservice Keuangan

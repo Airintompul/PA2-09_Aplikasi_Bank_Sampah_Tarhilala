@@ -6,7 +6,7 @@ import 'widgets/bottom_navbar.dart';
 import 'widgets/top_navbar.dart';    
 import 'profile_page.dart';
 import '../user/semua_sampah_page.dart';
-import '../user/jual_sampah_page.dart';
+import '../user/riwayat_setoran_page.dart';
 import '../user/detail_sampah_page.dart';
 import '../user/detail_berita_page.dart';
 import '../user/semua_berita_page.dart';
@@ -109,7 +109,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     switch (currentIndex) {
       case 0: return _dashboardContent();
       case 1: return const Center(child: Text("Transaksi"));
-      case 2: return const JualSampahPage();
+      case 2: return const RiwayatSetoranPage();
       case 3: return const RewardPage();
       case 4: return const ProfilePage();
       default: return _dashboardContent();
@@ -256,7 +256,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
         children: [
           _menuItem(Icons.recycling, "Jual Sampah", const Color(0xFF1E56A0)),
           _menuItem(Icons.calendar_today, "Jadwal Penjemputan", const Color(0xFFF9AB40)),
-          _menuItem(Icons.help_outline, "Panduan Jual Sampah", const Color(0xFF4FD3C4)),
+          _menuItem(Icons.help_outline, "Panduan", const Color(0xFF4FD3C4)),
           _menuItem(Icons.local_offer, "Harga Sampah", const Color(0xFF48A9FE)),
           _menuItem(Icons.support_agent, "Bantuan", const Color(0xFFFF8A80)),
           _menuItem(Icons.receipt_long, "Transaksi", const Color(0xFFBA68C8)),

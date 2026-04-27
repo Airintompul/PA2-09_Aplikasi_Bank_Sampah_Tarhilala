@@ -37,6 +37,7 @@ Route::post('/user/register', [UserAuthController::class, 'register']);
 Route::post('/forgot-password', [PasswordResetController::class, 'sendOtp']);
 Route::post('/verify-otp', [PasswordResetController::class, 'verifyOtp']);
 Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
+Route::get('/harga-sampah', [App\Http\Controllers\Api\Admin\ProductController::class, 'index']);
 
 // Master Data Public
 Route::get('/berita', [BeritaController::class, 'index']);
@@ -117,6 +118,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Setoran & Live Tracking
         Route::get('/setoran', [SetoranController::class, 'index']);
         Route::put('/setoran/{id}', [SetoranController::class, 'update']);
+        Route::post('setoran/{id}/verify-ai', [SetoranController::class, 'verifyAi']);
         Route::get('/driver-location/{driver_id}', [SetoranController::class, 'getDriverLocation']);
 
         // Admin Inbox Messages

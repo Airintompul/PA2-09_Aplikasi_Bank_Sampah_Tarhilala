@@ -70,6 +70,12 @@ const routes = [
         meta: { requiresAuth: true }
     },
     {
+        path: '/setoran/:id/tracking',
+        name: 'SetoranTracking',
+        component: () => import('@/Pages/Admin/Setoran/Tracking.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
         path: '/billing',
         name: 'Billing',
         component: () => import('@/Pages/Admin/Billing/Index.vue'),

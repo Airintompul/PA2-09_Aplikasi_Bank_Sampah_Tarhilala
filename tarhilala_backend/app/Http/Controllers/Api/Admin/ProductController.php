@@ -13,11 +13,13 @@ class ProductController extends Controller
      * Menampilkan daftar produk (JSON)
      */
     public function index()
-    {
-        $products = JenisSampah::orderBy('created_at', 'desc')->get();
+{
+    try {
+        // Gunakan orderBy ID jika created_at bermasalah
+        $products = \App\Models\JenisSampah::orderBy('id', 'desc')->get();
 
-        // Transformasi path gambar menjadi URL lengkap agar mudah dibaca oleh Vue/Flutter
         $products->transform(function ($item) {
+            // Pastikan URL gambar benar agar tidak "Failed to decode image"
             if ($item->gambar) {
                 $item->gambar = url($item->gambar);
             }
@@ -28,7 +30,14 @@ class ProductController extends Controller
             'status' => 'success',
             'data' => $products
         ], 200);
+    } catch (\Exception $e) {
+        // Kirim error sebagai JSON, bukan HTML
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Menyimpan produk baru via API
