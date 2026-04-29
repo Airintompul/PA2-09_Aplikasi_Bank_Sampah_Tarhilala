@@ -17,12 +17,19 @@ const openDelete = ref(false);
 const currReward = ref({ id: '', nama_reward: '', poin_dibutuhkan: '', stok: '', deskripsi: '', gambar: null });
 const imagePreview = ref(null);
 
+// Konfigurasi Header Token
+const getHeaders = () => ({
+    'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+    'Accept': 'application/json'
+});
+
 // --- LOGIC: AMBIL DATA DARI API ---
 const fetchRewards = async () => {
     try {
         const response = await axios.get('/api/admin/rewards', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('admin_token')}` }
+            headers: getHeaders()
         });
+        // Sesuai format response Laravel: response.data.data
         rewards.value = response.data.data;
     } catch (error) {
         console.error("Gagal mengambil data reward");
@@ -34,8 +41,10 @@ const fetchRewards = async () => {
 // --- LOGIC: HANDLE FILE INPUT ---
 const onFileChange = (e) => {
     const file = e.target.files[0];
-    currReward.value.gambar = file;
-    imagePreview.value = URL.createObjectURL(file);
+    if (file) {
+        currReward.value.gambar = file;
+        imagePreview.value = URL.createObjectURL(file);
+    }
 };
 
 // --- LOGIC: SIMPAN REWARD BARU ---
@@ -44,18 +53,19 @@ const handleStore = async () => {
     formData.append('nama_reward', currReward.value.nama_reward);
     formData.append('poin_dibutuhkan', currReward.value.poin_dibutuhkan);
     formData.append('stok', currReward.value.stok);
-    formData.append('deskripsi', currReward.value.deskripsi);
+    formData.append('deskripsi', currReward.value.deskripsi || '');
     if (currReward.value.gambar) formData.append('gambar', currReward.value.gambar);
 
     try {
         await axios.post('/api/admin/rewards', formData, {
-            headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${localStorage.getItem('admin_token')}` }
+            headers: { ...getHeaders(), 'Content-Type': 'multipart/form-data' }
         });
         closeModals();
         showSuccess("Reward Berhasil Ditambahkan!");
         fetchRewards();
     } catch (error) {
-        alert("Gagal menyimpan data reward");
+        const msg = error.response?.data?.message || "Gagal menyimpan. Cek kembali input Anda.";
+        alert(msg);
     }
 };
 
@@ -65,31 +75,33 @@ const handleUpdate = async () => {
     try {
         const formData = new FormData();
 
-        // 1. WAJIB: Laravel Method Spoofing
-        formData.append('_method', 'PUT');
+        // --- HAPUS ATAU KOMENTARI BARIS DI BAWAH INI ---
+        // formData.append('_method', 'PUT');
 
-        // 2. Isi data teks
+        // Isi data teks tetap sama
         formData.append('nama_reward', currReward.value.nama_reward);
         formData.append('poin_dibutuhkan', currReward.value.poin_dibutuhkan);
         formData.append('stok', currReward.value.stok);
-        formData.append('deskripsi', currReward.value.deskripsi);
+        formData.append('deskripsi', currReward.value.deskripsi || '');
 
-        // 3. Hanya append jika ada file baru yang dipilih (objek File)
         if (currReward.value.gambar instanceof File) {
             formData.append('gambar', currReward.value.gambar);
         }
 
-        // 4. Kirim sebagai POST (sesuai daftar route Anda)
-        await api.post(`/rewards/${currReward.value.id}`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+        // Tetap gunakan axios.post
+        await axios.post(`/api/admin/rewards/${currReward.value.id}`, formData, {
+            headers: {
+                ...getHeaders(),
+                'Content-Type': 'multipart/form-data'
+            }
         });
 
         openEdit.value = false;
-        fetchRewards(); // Refresh tabel
-        alert("Berhasil diperbarui!");
+        showSuccess("Reward Berhasil Diperbarui!");
+        fetchRewards();
+        closeModals();
 
     } catch (error) {
-        // Menampilkan pesan error validasi spesifik dari Laravel
         const msg = error.response?.data?.message || "Cek kembali data Anda";
         alert("Gagal: " + msg);
     } finally {
@@ -101,7 +113,7 @@ const handleUpdate = async () => {
 const handleDelete = async () => {
     try {
         await axios.delete(`/api/admin/rewards/${currReward.value.id}`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('admin_token')}` }
+            headers: getHeaders()
         });
         openDelete.value = false;
         showSuccess("Reward Berhasil Dihapus!");
@@ -113,6 +125,7 @@ const handleDelete = async () => {
 
 // --- HELPER FUNCTIONS ---
 const openEditModal = (reward) => {
+    // Clone data agar tidak langsung merubah tampilan tabel sebelum disimpan
     currReward.value = { ...reward };
     imagePreview.value = reward.gambar;
     openEdit.value = true;
@@ -149,21 +162,24 @@ onMounted(() => fetchRewards());
         </div>
 
         <!-- Table Container -->
-        <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 relative">
+        <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 relative overflow-hidden">
             <table class="w-full text-left">
                 <thead class="bg-[#41D3BD]">
                     <tr>
-                        <th class="pl-20 py-6 w-32 rounded-tl-[2.5rem] text-black font-black uppercase text-sm">Foto</th>
+                        <th class="pl-20 py-6 w-32 text-black font-black uppercase text-sm">Foto</th>
                         <th class="px-6 py-6 text-black font-black uppercase text-sm">Nama Reward</th>
                         <th class="px-6 py-6 text-black font-black uppercase text-sm text-center">Poin</th>
                         <th class="px-6 py-6 text-black font-black uppercase text-sm text-center">Stok</th>
                         <th class="px-6 py-6 text-black font-black uppercase text-sm text-center">Status</th>
-                        <th class="px-8 py-6 text-center rounded-tr-[2.5rem]">
+                        <th class="px-8 py-6 text-center">
                             <span class="bg-white px-5 py-1 rounded-lg text-xs font-black text-black uppercase">Action</span>
                         </th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 text-black font-medium">
+                    <tr v-if="rewards.length === 0" class="text-center">
+                        <td colspan="6" class="py-10 text-gray-400 font-bold uppercase italic">Belum ada data reward</td>
+                    </tr>
                     <tr v-for="reward in rewards" :key="reward.id" class="hover:bg-gray-50/50 transition-all">
                         <td class="pl-20 py-6">
                             <div class="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center border border-gray-50 overflow-hidden shadow-sm">
@@ -192,7 +208,6 @@ onMounted(() => fetchRewards());
                     </tr>
                 </tbody>
             </table>
-            <div class="h-6"></div>
         </div>
 
         <!-- MODAL ADD/EDIT -->
@@ -209,29 +224,32 @@ onMounted(() => fetchRewards());
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Poin</label>
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Poin Dibutuhkan</label>
                             <input v-model="currReward.poin_dibutuhkan" type="number" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700">
                         </div>
                         <div>
-                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Stok</label>
+                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Stok Unit</label>
                             <input v-model="currReward.stok" type="number" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700">
                         </div>
                     </div>
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Deskripsi</label>
-                        <textarea v-model="currReward.deskripsi" rows="2" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700"></textarea>
+                        <textarea v-model="currReward.deskripsi" rows="3" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700" placeholder="Jelaskan detail reward..."></textarea>
                     </div>
                     <div>
                         <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Foto Produk</label>
-                        <input type="file" @change="onFileChange" class="w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-[#41D3BD]/10 file:text-[#41D3BD] hover:file:bg-[#41D3BD]/20" />
-                        <div v-if="imagePreview" class="mt-4 w-24 h-24 rounded-2xl overflow-hidden border">
+                        <input type="file" @change="onFileChange" accept="image/*" class="w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-[#41D3BD]/10 file:text-[#41D3BD] hover:file:bg-[#41D3BD]/20" />
+
+                        <div v-if="imagePreview" class="mt-4 w-32 h-32 rounded-2xl overflow-hidden border-4 border-gray-50 shadow-inner">
                             <img :src="imagePreview" class="w-full h-full object-cover">
                         </div>
                     </div>
 
                     <div class="flex justify-end space-x-3 pt-6 border-t border-gray-50">
                         <button @click="closeModals" type="button" class="px-8 py-4 bg-gray-100 rounded-2xl font-black text-gray-400 uppercase text-xs">Batal</button>
-                        <button type="submit" class="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg uppercase text-xs hover:scale-105 transition-all">Simpan</button>
+                        <button type="submit" :disabled="isLoading" class="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg uppercase text-xs hover:scale-105 transition-all disabled:opacity-50">
+                            {{ isLoading ? 'Processing...' : 'Simpan' }}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -253,9 +271,3 @@ onMounted(() => fetchRewards());
         </div>
     </AdminLayout>
 </template>
-
-<style scoped>
-/* Transisi halus */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.5s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-</style>

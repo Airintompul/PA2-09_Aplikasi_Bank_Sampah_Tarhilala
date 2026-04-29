@@ -8,61 +8,80 @@ use App\Models\PenukaranReward;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class RedeemController extends Controller
 {
     public function redeem(Request $request)
     {
+        // 1. Validasi Input (Sekarang mendukung jumlah penukaran)
         $request->validate([
-            'reward_id' => 'required|exists:reward,id'
+            'reward_id' => 'required|exists:reward,id',
+            'jumlah'    => 'required|integer|min:1'
         ]);
 
         $reward = Reward::findOrFail($request->reward_id);
-        $nasabahId = auth()->id(); // Diambil dari token login nasabah
+        $user = auth()->user();
 
-        // 1. Cek stok reward di Main App
-        if ($reward->stok <= 0) {
-            return response()->json(['message' => 'Maaf, stok reward ini sudah habis'], 400);
+        // Hitung total poin yang dibutuhkan
+        $totalPoinDibutuhkan = $reward->poin_dibutuhkan * $request->jumlah;
+
+        // 2. Cek stok reward di Database Lokal
+        if ($reward->stok < $request->jumlah) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Maaf, stok tidak mencukupi. Tersisa: ' . $reward->stok
+            ], 400);
         }
 
-        return DB::transaction(function () use ($reward, $nasabahId) {
+        // Gunakan Transaction agar jika salah satu gagal, semua dibatalkan
+        return DB::transaction(function () use ($reward, $user, $request, $totalPoinDibutuhkan) {
 
-            // 2. Panggil Finance Service (Port 8001) untuk cek & potong poin
             try {
+                // 3. Panggil Finance Service (Port 8001) untuk potong poin
                 $response = Http::withHeaders([
-                    'X-Internal-Key' => env('INTERNAL_API_KEY')
+                    'X-Internal-Key' => env('INTERNAL_API_KEY', 'TarhilalaSecretFinanceKey2024'),
+                    'Accept'         => 'application/json'
                 ])->post('http://127.0.0.1:8001/api/internal/deduct-points', [
-                    'user_id' => $nasabahId,
-                    'points'  => $reward->poin_dibutuhkan,
-                    'description' => "Penukaran Reward: " . $reward->nama_reward
+                    'user_id'     => $user->id,
+                    'points'      => $totalPoinDibutuhkan,
+                    'reward_name' => $reward->nama_reward,
+                    'description' => "Tukar {$request->jumlah}x {$reward->nama_reward}"
                 ]);
 
+                // Jika Finance Service menolak (Misal: Poin tidak cukup)
                 if ($response->failed()) {
+                    $errorMsg = $response->json('message') ?? 'Poin Anda tidak mencukupi';
                     return response()->json([
-                        'message' => 'Gagal tukar poin: ' . ($response->json('message') ?? 'Koneksi error')
+                        'status'  => 'error',
+                        'message' => 'Gagal potong poin: ' . $errorMsg
                     ], 400);
                 }
 
-                // 3. Jika poin berhasil dipotong, kurangi stok di Main App
-                $reward->decrement('stok');
+                // 4. Jika poin aman, kurangi stok barang di DB Lokal
+                $reward->decrement('stok', $request->jumlah);
 
-                // 4. Catat riwayat penukaran
+                // 5. Catat riwayat penukaran di DB Lokal
                 $penukaran = PenukaranReward::create([
-                    'user_id' => $nasabahId,
-                    'reward_id' => $reward->id,
-                    'poin_digunakan' => $reward->poin_dibutuhkan,
-                    'status' => 'menunggu', // Admin nanti yang memproses fisiknya
+                    'user_id'           => $user->id,
+                    'reward_id'         => $reward->id,
+                    'poin_digunakan'    => $totalPoinDibutuhkan,
+                    'status'            => 'menunggu',
                     'tanggal_penukaran' => now()
                 ]);
 
                 return response()->json([
-                    'status' => 'success',
-                    'message' => 'Penukaran berhasil diajukan! Silakan hubungi admin untuk pengambilan.',
-                    'data' => $penukaran
+                    'status'  => 'success',
+                    'message' => 'Penukaran berhasil diajukan! Saldo poin Anda telah dipotong.',
+                    'data'    => $penukaran
                 ], 201);
 
             } catch (\Exception $e) {
-                return response()->json(['message' => 'Microservice Keuangan tidak merespon'], 500);
+                Log::error("Redeem Error: " . $e->getMessage());
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Layanan Keuangan sedang gangguan. Silakan coba lagi nanti.'
+                ], 500);
             }
         });
     }

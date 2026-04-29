@@ -27,6 +27,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         primarySwatch: Colors.blue,
+        fontFamily: 'PlusJakartaSans', // 👈 ini kuncinya
       ),
 
       routes: {

@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import '../../services/product_service.dart';
 import '../../services/news_service.dart';
 import 'widgets/bottom_navbar.dart'; 
@@ -13,6 +16,7 @@ import '../user/semua_berita_page.dart';
 import '../user/reward_page.dart';
 import '../user/panduan_jual_sampah_page.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:intl/intl.dart'; // Untuk format Rupiah
 
 class UserDashboardPage extends StatefulWidget {
   const UserDashboardPage({super.key});
@@ -26,12 +30,15 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   List hargaSampah = [];
   List berita = [];
   
-  // Controller & Timer untuk Auto Scroll Berita
+  // Data Dinamis User
+  String namaUser = "Nasabah";
+  String saldoUser = "0";
+  String poinUser = "0";
+  bool isLoadingStats = true;
+
   late PageController _newsPageController;
   Timer? _newsTimer;
   int _currentNewsPage = 0;
-
-  // Controller & Timer untuk Auto Scroll Harga Sampah
   late PageController _hargaPageController;
   Timer? _hargaTimer;
   int _currentHargaPage = 0;
@@ -42,9 +49,62 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     _newsPageController = PageController(viewportFraction: 0.9);
     _hargaPageController = PageController(viewportFraction: 0.4); 
     
-    loadHargaSampah();
-    loadBerita();
+    _initialLoad();
   }
+
+  Future<void> _initialLoad() async {
+    await loadUserData(); // Ambil Nama, Saldo, Poin
+    await loadHargaSampah();
+    await loadBerita();
+  }
+
+  // --- LOGIKA AMBIL DATA USER DINAMIS ---
+  Future<void> loadUserData() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? token = prefs.getString('token');
+
+  if (token == null) {
+    print("Token tidak ditemukan!");
+    return;
+  }
+
+  try {
+    final response = await http.get(
+      Uri.parse("http://10.0.2.2:8000/api/profile"), // Pastikan URL benar
+      headers: {
+        "Authorization": "Bearer $token",
+        "Accept": "application/json",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      
+      setState(() {
+        // 1. Ambil Nama (Key JSON: 'nama')
+        namaUser = data['nama'] ?? "Nasabah";
+
+        // 2. Ambil Saldo (JSON mengirim String "50000.00", kita ubah ke Rupiah)
+        // Kita gunakan double.parse agar aman jika backend mengirim string
+        double rawSaldo = double.tryParse(data['saldo'].toString()) ?? 0;
+        saldoUser = NumberFormat.currency(locale: 'id', symbol: 'Rp ', decimalDigits: 0)
+            .format(rawSaldo);
+
+        // 3. Ambil Poin (Key JSON: 'poin')
+        poinUser = (data['poin'] ?? 0).toString();
+        
+        isLoadingStats = false;
+      });
+      
+      print("Data Ter-update: $namaUser, $saldoUser, $poinUser");
+    } else {
+      print("Gagal ambil data: ${response.statusCode}");
+    }
+  } catch (e) {
+    print("Error di Flutter: $e");
+    setState(() => isLoadingStats = false);
+  }
+}
 
   @override
   void dispose() {
@@ -55,20 +115,21 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     super.dispose();
   }
 
+  // --- REFRESH DATA ---
+  Future<void> _onRefresh() async {
+    await _initialLoad();
+  }
+
   Future<void> loadHargaSampah() async {
     final data = await ProductService.getHargaSampah();
     setState(() => hargaSampah = data);
-    if (hargaSampah.isNotEmpty) {
-      _startHargaAutoScroll();
-    }
+    if (hargaSampah.isNotEmpty) _startHargaAutoScroll();
   }
 
   Future<void> loadBerita() async {
     final data = await NewsService.getBerita();
     setState(() => berita = data);
-    if (berita.isNotEmpty) {
-      _startNewsAutoScroll();
-    }
+    if (berita.isNotEmpty) _startNewsAutoScroll();
   }
 
   void _startNewsAutoScroll() {
@@ -79,11 +140,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
         _currentNewsPage = 0;
       }
       if (_newsPageController.hasClients) {
-        _newsPageController.animateToPage(
-          _currentNewsPage,
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeInOut,
-        );
+        _newsPageController.animateToPage(_currentNewsPage, duration: const Duration(milliseconds: 800), curve: Curves.easeInOut);
       }
     });
   }
@@ -96,11 +153,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
         _currentHargaPage = 0;
       }
       if (_hargaPageController.hasClients) {
-        _hargaPageController.animateToPage(
-          _currentHargaPage,
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeInOut,
-        );
+        _hargaPageController.animateToPage(_currentHargaPage, duration: const Duration(milliseconds: 800), curve: Curves.easeInOut);
       }
     });
   }
@@ -129,60 +182,46 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   }
 
   Widget _dashboardContent() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const TopNavbar(),
-
-          // --- SALDO CARD ---
-          _buildSaldoCard(),
-
-          // --- MENU GRID ---
-          _buildMenuGrid(),
-
-          const SizedBox(height: 25),
-
-          _sectionHeader("Harga Sampah", () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const SemuaSampahPage()));
-          }),
-
-          const SizedBox(height: 12),
-
-          // --- AUTO-ROLL HARGA SAMPAH ---
-          SizedBox(
-            height: 160,
-            child: PageView.builder(
-              controller: _hargaPageController,
-              itemCount: hargaSampah.length,
-              padEnds: false,
-              onPageChanged: (index) => _currentHargaPage = index,
-              itemBuilder: (context, index) => _hargaCard(hargaSampah[index]),
+    return RefreshIndicator(
+      onRefresh: _onRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const TopNavbar(),
+            _buildSaldoCard(),
+            _buildMenuGrid(),
+            const SizedBox(height: 25),
+            _sectionHeader("Harga Sampah", () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SemuaSampahPage()));
+            }),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 160,
+              child: PageView.builder(
+                controller: _hargaPageController,
+                itemCount: hargaSampah.length,
+                padEnds: false,
+                itemBuilder: (context, index) => _hargaCard(hargaSampah[index]),
+              ),
             ),
-          ),
-
-          const SizedBox(height: 25),
-
-          _sectionHeader("Berita Pilihan", () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const SemuaBeritaPage()));
-          }),
-
-          const SizedBox(height: 12),
-
-          // --- AUTO-ROLL BERITA ---
-          SizedBox(
-            height: 320,
-            child: PageView.builder(
-              controller: _newsPageController,
-              itemCount: berita.length,
-              onPageChanged: (index) => _currentNewsPage = index,
-              itemBuilder: (context, index) => _beritaCard(berita[index]),
+            const SizedBox(height: 25),
+            _sectionHeader("Berita Pilihan", () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SemuaBeritaPage()));
+            }),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 320,
+              child: PageView.builder(
+                controller: _newsPageController,
+                itemCount: berita.length,
+                itemBuilder: (context, index) => _beritaCard(berita[index]),
+              ),
             ),
-          ),
-
-          const SizedBox(height: 30),
-        ],
+            const SizedBox(height: 30),
+          ],
+        ),
       ),
     );
   }
@@ -200,6 +239,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,21 +258,24 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text("Total", style: TextStyle(color: Colors.white70, fontSize: 14)),
-                    const Text("Rp 100.000", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                    Text(
+                      saldoUser, 
+                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)
+                    ),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 15),
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Tiara Pardosi", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                Text(namaUser, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
                 Row(
                   children: [
-                    Icon(Icons.stars, color: Colors.amber, size: 18),
-                    SizedBox(width: 5),
-                    Text("1,200 Poin", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    const Icon(Icons.stars, color: Colors.amber, size: 18),
+                    const SizedBox(width: 5),
+                    Text("$poinUser Poin", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ],
                 )
               ],
@@ -243,25 +286,53 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     );
   }
 
+  // --- UI LAINNYA TETAP SAMA ---
+  Widget _menuItem(IconData icon, String title, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            width: 54, height: 54,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: color.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))]),
+            child: Icon(icon, color: Colors.white, size: 26),
+          ),
+          const SizedBox(height: 8),
+          Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF1B3D5F))),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMenuGrid() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GridView.count(
-        crossAxisCount: 4,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 15,
-        crossAxisSpacing: 10,
-        childAspectRatio: 0.8,
+        crossAxisCount: 4, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 15, crossAxisSpacing: 10, childAspectRatio: 0.8,
         children: [
-          _menuItem(Icons.recycling, "Jual Sampah", const Color(0xFF1E56A0)),
-          _menuItem(Icons.calendar_today, "Jadwal Penjemputan", const Color(0xFFF9AB40)),
-          _menuItem(Icons.help_outline, "Panduan", const Color(0xFF4FD3C4)),
-          _menuItem(Icons.local_offer, "Harga Sampah", const Color(0xFF48A9FE)),
-          _menuItem(Icons.support_agent, "Bantuan", const Color(0xFFFF8A80)),
-          _menuItem(Icons.receipt_long, "Transaksi", const Color(0xFFBA68C8)),
-          _menuItem(Icons.radio_button_checked, "Poin", const Color(0xFF7986CB)),
-          _menuItem(Icons.newspaper, "Berita", const Color(0xFFD4A017)),
+          _menuItem(Icons.recycling, "Jual Sampah", const Color(0xFF1E56A0), () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const RiwayatSetoranPage()));
+          }),
+          _menuItem(Icons.calendar_today, "Jadwal", const Color(0xFFF9AB40), () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const RiwayatSetoranPage()));
+          }),
+          _menuItem(Icons.help_outline, "Panduan", const Color(0xFF4FD3C4), () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const PanduanJualSampahPage()));
+          }),
+          _menuItem(Icons.local_offer, "Harga", const Color(0xFF48A9FE), () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SemuaSampahPage()));
+          }),
+          _menuItem(Icons.support_agent, "Bantuan", const Color(0xFFFF8A80), () {}),
+          _menuItem(Icons.receipt_long, "Transaksi", const Color(0xFFBA68C8), () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const RiwayatSetoranPage()));
+          }),
+          _menuItem(Icons.radio_button_checked, "Poin", const Color(0xFF7986CB), () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardPage()));
+          }),
+          _menuItem(Icons.newspaper, "Berita", const Color(0xFFD4A017), () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SemuaBeritaPage()));
+          }),
         ],
       ),
     );
@@ -274,62 +345,18 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          GestureDetector(
-            onTap: onAction,
-            child: const Text("Lihat Semua", style: TextStyle(color: Color(0xFF3B71CA), fontSize: 12, fontWeight: FontWeight.bold)),
-          ),
+          GestureDetector(onTap: onAction, child: const Text("Lihat Semua", style: TextStyle(color: Color(0xFF3B71CA), fontSize: 12, fontWeight: FontWeight.bold))),
         ],
       ),
     );
   }
-
-Widget _menuItem(IconData icon, String title, Color color) {
-  return GestureDetector(
-    onTap: () {
-      // 👇 HANYA TAMBAHAN INI
-      if (title == "Panduan Jual Sampah") {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const PanduanJualSampahPage(),
-          ),
-        );
-      }
-    },
-    child: Column(
-      children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: Colors.white, size: 26),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    ),
-  );
-}
 
   Widget _hargaCard(Map item) {
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailSampahPage(data: item))),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -346,15 +373,11 @@ Widget _menuItem(IconData icon, String title, Color color) {
   Widget _beritaCard(Map item) {
     String rawDate = item['created_at'] ?? item['tanggal'] ?? DateTime.now().toString();
     String waktuRelatif = timeago.format(DateTime.parse(rawDate), locale: 'id');
-
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailBeritaPage(data: item))),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

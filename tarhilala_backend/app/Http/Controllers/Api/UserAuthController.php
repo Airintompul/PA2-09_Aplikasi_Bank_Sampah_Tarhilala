@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\SendOtpMail;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Models\PoinLog;
+use Illuminate\Support\Facades\Http;
 
 class UserAuthController extends Controller
 {
@@ -151,4 +153,33 @@ class UserAuthController extends Controller
             "data" => null
         ]);
     }
+
+    // tarhilala_backend (Port 8000)
+
+public function profile(Request $request) {
+    $user = $request->user();
+    $headers = ['X-Internal-Key' => env('INTERNAL_API_KEY')];
+
+    $saldo = 0;
+    $poin = 0;
+
+    try {
+        // AMBIL SALDO UANG DARI 8001
+        $resSaldo = Http::withHeaders($headers)->get("http://127.0.0.1:8001/api/internal/balance/{$user->id}?type=saldo");
+        if ($resSaldo->successful()) $saldo = $resSaldo->json('balance');
+
+        // AMBIL SALDO POIN DARI 8001 (Ini sumber poin yang benar untuk belanja)
+        $resPoin = Http::withHeaders($headers)->get("http://127.0.0.1:8001/api/internal/balance/{$user->id}?type=poin");
+        if ($resPoin->successful()) $poin = $resPoin->json('balance');
+
+    } catch (\Exception $e) {
+        \Log::error("Koneksi 8001 gagal");
+    }
+
+    return response()->json([
+        'nama'  => $user->nama,
+        'saldo' => $saldo,
+        'poin'  => (int)$poin, // Sekarang poin di dashboard akan sama dengan poin di Finance
+    ]);
+}
 }

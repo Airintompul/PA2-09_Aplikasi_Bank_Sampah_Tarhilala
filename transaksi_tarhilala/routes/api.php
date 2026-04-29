@@ -18,4 +18,5 @@ Route::prefix('admin')->group(function () {
 
 // Endpoint untuk dipanggil Main App (Port 8000)
 Route::post('/internal/add-balance', [InternalFinanceController::class, 'addBalance']);
+Route::get('/internal/balance/{user_id}', [InternalFinanceController::class, 'getBalance']);
 Route::post('/internal/deduct-points', [InternalFinanceController::class, 'deductPoints']);

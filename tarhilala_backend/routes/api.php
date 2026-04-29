@@ -56,13 +56,15 @@ Route::post('/admin/login', [AdminController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
 
     // --- AREA NASABAH (FLUTTER) ---
-    Route::get('/profile', fn (Request $request) => $request->user());
+    Route::get('/profile', [UserAuthController::class, 'profile']);
 
     Route::prefix('nasabah')->group(function () {
         Route::get('/setoran/{nasabah_id}', [NasabahSetoranController::class, 'index']);
         Route::post('/setoran/store', [NasabahSetoranController::class, 'store']);
         Route::get('/setoran/detail/{id}', [NasabahSetoranController::class, 'show']);
         Route::put('/setoran/cancel/{id}', [NasabahSetoranController::class, 'cancel']);
+
+        Route::post('/redeem', [RedeemController::class, 'redeem']);
 
         // Chat Nasabah
         Route::get('/chat/room', [ChatController::class, 'getRoom']);

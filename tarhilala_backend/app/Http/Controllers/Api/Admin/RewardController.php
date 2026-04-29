@@ -15,6 +15,7 @@ class RewardController extends Controller
 
         $rewards->transform(function ($item) {
             if ($item->gambar) {
+                // Menghasilkan URL lengkap untuk gambar
                 $item->gambar = url($item->gambar);
             }
             return $item;
@@ -26,17 +27,18 @@ class RewardController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nama_reward' => 'required|string|max:200|unique:reward,nama_reward',
+            'nama_reward'     => 'required|string|max:200|unique:reward,nama_reward',
             'poin_dibutuhkan' => 'required|numeric',
-            'stok' => 'required|numeric',
-            'gambar' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'stok'            => 'required|numeric',
+            'deskripsi'       => 'nullable|string',
+            'gambar'          => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $data = $request->all();
+        $data = $request->only(['nama_reward', 'poin_dibutuhkan', 'stok', 'deskripsi']);
 
         if ($request->hasFile('gambar')) {
             $file = $request->file('gambar');
-            $nama_file = time() . "_" . $file->getClientOriginalName();
+            $nama_file = time() . "_" . str_replace(' ', '_', $file->getClientOriginalName());
             $file->move(public_path('assets/img/rewards'), $nama_file);
             $data['gambar'] = 'assets/img/rewards/' . $nama_file;
         }
@@ -49,28 +51,40 @@ class RewardController extends Controller
     {
         $reward = Reward::findOrFail($id);
 
+        // LOGIKA PENTING: Jika Frontend mengirim field 'poin', kita petakan ke 'poin_dibutuhkan'
+        if ($request->has('poin') && !$request->has('poin_dibutuhkan')) {
+            $request->merge(['poin_dibutuhkan' => $request->poin]);
+        }
+
         $request->validate([
-            // PENTING: ,$id ditambahkan agar mengabaikan nama dirinya sendiri saat pengecekan unik
-            'nama_reward' => "required|string|max:200|unique:reward,nama_reward,$id",
+            'nama_reward'     => "required|string|max:200|unique:reward,nama_reward,$id",
             'poin_dibutuhkan' => 'required|numeric',
-            'stok' => 'required|numeric',
-            'gambar' => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'stok'            => 'required|numeric',
+            'deskripsi'       => 'nullable|string',
+            'gambar'          => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $data = $request->all();
+        $data = $request->only(['nama_reward', 'poin_dibutuhkan', 'stok', 'deskripsi']);
 
         if ($request->hasFile('gambar')) {
-            if ($reward->gambar && File::exists(public_path($reward->gambar))) {
-                File::delete(public_path($reward->gambar));
+            // Hapus foto lama jika ada file baru yang diupload
+            if ($reward->getRawOriginal('gambar') && File::exists(public_path($reward->getRawOriginal('gambar')))) {
+                File::delete(public_path($reward->getRawOriginal('gambar')));
             }
+
             $file = $request->file('gambar');
-            $nama_file = time() . "_" . $file->getClientOriginalName();
+            $nama_file = time() . "_" . str_replace(' ', '_', $file->getClientOriginalName());
             $file->move(public_path('assets/img/rewards'), $nama_file);
             $data['gambar'] = 'assets/img/rewards/' . $nama_file;
         }
 
         $reward->update($data);
-        return response()->json(['status' => 'success', 'data' => $reward], 200);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Data reward berhasil diperbarui',
+            'data' => $reward
+        ], 200);
     }
 
     public function destroy($id)
@@ -80,6 +94,6 @@ class RewardController extends Controller
             File::delete(public_path($reward->gambar));
         }
         $reward->delete();
-        return response()->json(['status' => 'success', 'message' => 'Dihapus'], 200);
+        return response()->json(['status' => 'success', 'message' => 'Reward berhasil dihapus'], 200);
     }
 }

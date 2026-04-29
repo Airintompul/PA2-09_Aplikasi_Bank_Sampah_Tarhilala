@@ -7,6 +7,8 @@ class WalletTransaction extends Model {
     protected $table = 'wallet_transaction';
     protected $fillable = ['account_id', 'amount', 'direction', 'reference_table', 'reference_data_id', 'description'];
 
+    const UPDATED_AT = null;
+
     public function wallet() {
         return $this->belongsTo(Wallet::class, 'account_id');
     }

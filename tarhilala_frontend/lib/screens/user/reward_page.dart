@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import 'package:tarhilala_frontend/screens/user/widgets/top_navbar.dart';
 import '../../services/reward_service.dart';
 import 'detail_reward_page.dart';
@@ -12,20 +15,60 @@ class RewardPage extends StatefulWidget {
 
 class _RewardPageState extends State<RewardPage> {
   List rewards = [];
-  bool loading = true;
+  String userPoin = "0"; 
+  bool loadingRewards = true;
+  bool loadingPoin = true;
 
   @override
   void initState() {
     super.initState();
-    loadRewards();
+    _initialLoad();
   }
 
-  Future loadRewards() async {
-    final data = await RewardService.getRewards();
-    setState(() {
-      rewards = data;
-      loading = false;
-    });
+  Future<void> _initialLoad() async {
+    await fetchUserPoin();
+    await loadRewards();
+  }
+
+  Future<void> fetchUserPoin() async {
+    setState(() => loadingPoin = true);
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('token');
+
+      final response = await http.get(
+        Uri.parse("http://10.0.2.2:8000/api/profile"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Accept": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          userPoin = (data['poin'] ?? 0).toString();
+          loadingPoin = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetch poin: $e");
+      setState(() => loadingPoin = false);
+    }
+  }
+
+  Future<void> loadRewards() async {
+    setState(() => loadingRewards = true);
+    try {
+      final data = await RewardService.getRewards();
+      setState(() {
+        rewards = data;
+        loadingRewards = false;
+      });
+    } catch (e) {
+      debugPrint("Error load rewards: $e");
+      setState(() => loadingRewards = false);
+    }
   }
 
   @override
@@ -34,12 +77,11 @@ class _RewardPageState extends State<RewardPage> {
       backgroundColor: const Color(0xFFF5F7F9),
       body: Column(
         children: [
-          /// 1. TOP NAVBAR (Bawaan tetap ada)
           const TopNavbar(),
 
           Expanded(
             child: RefreshIndicator(
-              onRefresh: loadRewards,
+              onRefresh: _initialLoad, 
               color: const Color(0xFF1E56A0),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -48,14 +90,8 @@ class _RewardPageState extends State<RewardPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 20),
-
-                    const SizedBox(height: 20),
-                    
-                    /// 3. CARD MY POINTS
                     _buildPointsCard(),
-
                     const SizedBox(height: 25),
-
                     const Text(
                       "Tukar Poin Reward",
                       style: TextStyle(
@@ -66,23 +102,24 @@ class _RewardPageState extends State<RewardPage> {
                     ),
                     const SizedBox(height: 15),
 
-                    /// 4. LIST REWARD
-                    loading
+                    loadingRewards
                         ? const Center(
                             child: Padding(
                               padding: EdgeInsets.only(top: 50),
                               child: CircularProgressIndicator(),
                             ),
                           )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            padding: EdgeInsets.zero,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: rewards.length,
-                            itemBuilder: (context, index) {
-                              return _buildRewardCard(rewards[index]);
-                            },
-                          ),
+                        : rewards.isEmpty 
+                          ? const Center(child: Text("Belum ada reward tersedia."))
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              padding: EdgeInsets.zero,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: rewards.length,
+                              itemBuilder: (context, index) {
+                                return _buildRewardCard(rewards[index]);
+                              },
+                            ),
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -106,11 +143,7 @@ class _RewardPageState extends State<RewardPage> {
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
       child: Row(
@@ -119,21 +152,18 @@ class _RewardPageState extends State<RewardPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Poin Anda Saat Ini",
-                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const Text("Poin Anda Saat Ini", style: TextStyle(color: Colors.white70, fontSize: 13)),
               const SizedBox(height: 10),
               Row(
-                children: const [
-                  Icon(Icons.stars, color: Colors.amber, size: 28),
-                  SizedBox(width: 8),
-                  Text(
-                    "1,200",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                children: [
+                  const Icon(Icons.stars, color: Colors.amber, size: 28),
+                  const SizedBox(width: 8),
+                  loadingPoin 
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : Text(
+                        userPoin,
+                        style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+                      ),
                 ],
               ),
             ],
@@ -144,17 +174,27 @@ class _RewardPageState extends State<RewardPage> {
   }
 
   Widget _buildRewardCard(Map item) {
+    // --- PERBAIKAN LOGIKA URL GAMBAR DI SINI ---
+    String imageUrl = item['gambar'] ?? "";
+    
+    // 1. Jika URL dari backend mengandung 127.0.0.1, ubah ke 10.0.2.2 agar bisa diakses Emulator
+    imageUrl = imageUrl.replaceAll("127.0.0.1", "10.0.2.2");
+
+    // 2. Jika di database gambarnya hanya nama file (bukan URL lengkap), tambahkan prefix domain
+    if (!imageUrl.startsWith("http")) {
+      imageUrl = "http://10.0.2.2:8000/storage/$imageUrl";
+    }
+
+    // 3. Encode URL untuk menangani spasi (PENTING!)
+    String finalImageUrl = Uri.encodeFull(imageUrl);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
         ],
       ),
       child: Padding(
@@ -164,14 +204,16 @@ class _RewardPageState extends State<RewardPage> {
             ClipRRect(
               borderRadius: BorderRadius.circular(15),
               child: Container(
-                width: 70,
-                height: 70,
+                width: 70, height: 70,
                 color: const Color(0xFFF0F4F8),
                 child: item['gambar'] != null
                     ? Image.network(
-                        Uri.encodeFull("http://10.0.2.2:8000/${item['gambar']}"),
+                        finalImageUrl, // Gunakan URL yang sudah bersih
                         fit: BoxFit.cover,
-                        errorBuilder: (c, e, s) => const Icon(Icons.redeem, color: Color(0xFF1E56A0)),
+                        errorBuilder: (c, e, s) {
+                          debugPrint("Gagal load gambar: $finalImageUrl");
+                          return const Icon(Icons.redeem, color: Color(0xFF1E56A0));
+                        },
                       )
                     : const Icon(Icons.redeem, color: Color(0xFF1E56A0), size: 30),
               ),
@@ -192,11 +234,7 @@ class _RewardPageState extends State<RewardPage> {
                       const SizedBox(width: 4),
                       Text(
                         "${item['poin_dibutuhkan']} Poin",
-                        style: const TextStyle(
-                          color: Color(0xFF3B71CA),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
+                        style: const TextStyle(color: Color(0xFF3B71CA), fontWeight: FontWeight.w600, fontSize: 13),
                       ),
                     ],
                   ),
@@ -208,7 +246,7 @@ class _RewardPageState extends State<RewardPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => DetailRewardPage(data: item)),
-                );
+                ).then((value) => _initialLoad());
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E56A0),
