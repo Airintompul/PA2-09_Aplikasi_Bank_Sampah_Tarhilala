@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\Admin\LibraryController;
 use App\Http\Controllers\Api\Admin\LocationController;
 use App\Http\Controllers\Api\Admin\MessageController;
 use App\Http\Controllers\Api\Admin\SetoranController;
+use App\Http\Controllers\Api\Admin\RedemptionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -65,6 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/setoran/cancel/{id}', [NasabahSetoranController::class, 'cancel']);
 
         Route::post('/redeem', [RedeemController::class, 'redeem']);
+        Route::get('/riwayat-reward', [RedeemController::class, 'riwayat']);
 
         // Chat Nasabah
         Route::get('/chat/room', [ChatController::class, 'getRoom']);
@@ -92,6 +94,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/employees', [EmployeeController::class, 'store']);
         Route::put('/employees/{id}', [EmployeeController::class, 'update']);
         Route::delete('/employees/{id}', [EmployeeController::class, 'destroy']);
+
+        Route::get('/redemptions', [App\Http\Controllers\Api\Admin\RedemptionController::class, 'index']);
+        Route::put('/redemptions/{id}', [App\Http\Controllers\Api\Admin\RedemptionController::class, 'updateStatus']);
+
+        Route::get('/setoran/{id}/invoice', [SetoranController::class, 'downloadInvoice']);
 
         Route::get('/customers', [CustomerController::class, 'index']);
         Route::post('/customers', [CustomerController::class, 'store']);

@@ -10,20 +10,20 @@ use Illuminate\Support\Facades\DB;
 class InternalFinanceController extends Controller {
 
     /**
-     * Menambahkan Saldo/Poin ke Wallet Nasabah & Mencatat Transaksi
+     * Menambahkan Saldo atau Poin ke Wallet Nasabah
      */
     public function addBalance(Request $request) {
-        // 1. Security Check (API Key Internal)
+        // 1. Keamanan API Key Internal
         if($request->header('X-Internal-Key') !== env('INTERNAL_API_KEY')) {
             return response()->json(['message' => 'Unauthorized Access'], 403);
         }
 
         return DB::transaction(function() use ($request) {
 
-            // PERBAIKAN: Ambil tipe akun secara dinamis (default ke 'saldo' jika tidak dikirim)
+            // 2. Ambil tipe akun secara dinamis (saldo atau poin)
             $type = $request->account_type ?? 'saldo';
 
-            // 2. Catat ke Tabel Transaksi Utama (Hanya jika tipe-nya adalah SALDO UANG)
+            // 3. Jika tipenya SALDO (UANG), catat di tabel riwayat transaksi utama
             if ($type == 'saldo') {
                 Transaksi::create([
                     'user_id'           => $request->user_id,
@@ -35,35 +35,34 @@ class InternalFinanceController extends Controller {
                 ]);
             }
 
-            // 3. Update Wallet (Mendukung Saldo atau Poin secara dinamis)
-            // Sistem akan mencari wallet berdasarkan user_id DAN account_type
+            // 4. Cari atau buat Brankas (Wallet) yang sesuai dengan user dan tipenya
             $wallet = Wallet::firstOrCreate(
                 ['user_id' => $request->user_id, 'account_type' => $type]
             );
 
-            // Tambah angka ke kolom current_balance (bisa berupa Rupiah atau jumlah Poin)
+            // 5. Tambahkan nilai ke kolom current_balance
             $wallet->increment('current_balance', $request->amount);
 
-            // 4. Catat Mutasi Detail Wallet (wallet_transaction) untuk audit
+            // 6. Catat Mutasi Detail Wallet agar riwayat keluar masuknya tercatat
             WalletTransaction::create([
                 'account_id'        => $wallet->id,
                 'amount'            => $request->amount,
                 'direction'         => 'credit',
                 'reference_table'   => 'setoran',
                 'reference_data_id' => $request->setoran_id,
-                'description'       => "Penambahan $type dari setoran #" . $request->setoran_id
+                'description'       => "Penambahan " . ucfirst($type) . " dari setoran #" . $request->setoran_id
             ]);
 
             return response()->json([
                 'status'  => 'success',
-                'message' => ucfirst($type) . ' berhasil diperbarui'
+                'message' => ucfirst($type) . ' berhasil diperbarui',
+                'new_balance' => $wallet->current_balance
             ]);
         });
     }
 
     /**
-     * Mengambil Jumlah Saldo/Poin Aktif Nasabah
-     * Gunakan query param ?type=poin untuk mengambil poin
+     * Mengambil Jumlah Saldo/Poin Aktif
      */
     public function getBalance(Request $request, $user_id) {
         $type = $request->query('type', 'saldo');
@@ -80,7 +79,7 @@ class InternalFinanceController extends Controller {
     }
 
     /**
-     * Memotong Poin Nasabah (Digunakan saat Tukar Reward)
+     * Memotong Poin Nasabah
      */
     public function deductPoints(Request $request) {
         if($request->header('X-Internal-Key') !== env('INTERNAL_API_KEY')) {

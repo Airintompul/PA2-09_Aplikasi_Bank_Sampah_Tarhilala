@@ -14,11 +14,11 @@ class NasabahSetoranController extends Controller
 {
     try {
         // Ambil data setoran milik nasabah tertentu
-        $data = \App\Models\Setoran::where('nasabah_id', $nasabah_id)
-                ->orderBy('tanggal_pengajuan', 'desc')
-                ->get();
-
-        return response()->json($data, 200);
+        $data = Setoran::with('invoice') // Tambahkan with('invoice')
+            ->where('nasabah_id', $nasabah_id)
+            ->orderBy('tanggal_pengajuan', 'desc')
+            ->get();
+    return response()->json($data);
     } catch (\Exception $e) {
         // Kirim error sebagai JSON agar Flutter tidak FormatException
         return response()->json([

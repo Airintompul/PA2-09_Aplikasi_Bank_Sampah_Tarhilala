@@ -15,6 +15,7 @@ import '../user/detail_berita_page.dart';
 import '../user/semua_berita_page.dart';
 import '../user/reward_page.dart';
 import '../user/panduan_jual_sampah_page.dart';
+import '../user/riwayat_reward_page.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/intl.dart'; // Untuk format Rupiah
 
@@ -328,7 +329,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const RiwayatSetoranPage()));
           }),
           _menuItem(Icons.radio_button_checked, "Poin", const Color(0xFF7986CB), () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const RewardPage()));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const RiwayatRewardPage()));
           }),
           _menuItem(Icons.newspaper, "Berita", const Color(0xFFD4A017), () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const SemuaBeritaPage()));

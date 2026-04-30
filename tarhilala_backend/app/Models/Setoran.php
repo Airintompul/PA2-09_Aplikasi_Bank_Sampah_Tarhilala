@@ -23,6 +23,12 @@ class Setoran extends Model
         return $this->belongsTo(User::class, 'nasabah_id');
     }
 
+    public function invoice()
+    {
+        // One-to-One: Satu setoran memiliki satu invoice
+        return $this->hasOne(Invoice::class, 'setoran_id');
+    }
+
     public function aiValidation()
     {
         return $this->hasOne(AiValidation::class, 'setoran_id');

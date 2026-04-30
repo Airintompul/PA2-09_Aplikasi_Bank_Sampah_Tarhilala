@@ -15,6 +15,7 @@ const menus = [
     { name: 'Location', icon: 'fa-solid fa-location-dot', path: '/location' },
     { name: 'Library', icon: 'fa-solid fa-images', path: '/library' },
     { name: 'Reward', icon: 'fa-solid fa-award', path: '/reward' },
+    { name: 'Redemption', icon: 'fa-solid fa-clipboard-check', path: '/redemption' },
 ];
 
 const handleLogout = () => {

@@ -17,7 +17,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str; // INI PERBAIKANNYA: Gunakan namespace ini
+use Illuminate\Support\Str;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class SetoranController extends Controller
 {
@@ -111,40 +112,74 @@ class SetoranController extends Controller
 
             // 3. TRIGGER FINANSIAL (Hanya jika SELESAI)
             if ($request->status == 'selesai') {
+    $finalAmount = $totalFinalHarga;
+    $headers = [
+        'X-Internal-Key' => env('INTERNAL_API_KEY', 'TarhilalaSecretFinanceKey2024'),
+        'Accept' => 'application/json'
+    ];
 
-                // A. Buat Invoice
-                Invoice::create([
-                    'setoran_id' => $setoran->id,
-                    'nomor_invoice' => 'INV-' . strtoupper(Str::random(8)),
-                    'total_bayar' => $totalFinalHarga,
-                    'tanggal_invoice' => now()
-                ]);
+    // =============================================================
+    // 1. BUAT INVOICE (LOKAL PORT 8000)
+    // =============================================================
+    try {
+        // Gunakan updateOrCreate agar jika driver klik simpan 2x tidak error duplicate
+        Invoice::updateOrCreate(
+            ['setoran_id' => $setoran->id],
+            [
+                'nomor_invoice'   => 'INV-' . strtoupper(Str::random(8)),
+                'total_bayar'     => $finalAmount,
+                'file_invoice'    => $path,
+                'tanggal_invoice' => now()
+            ]
+        );
+    } catch (\Exception $e) {
+        Log::error("Gagal buat invoice: " . $e->getMessage());
+    }
 
-                // B. Tambah Poin (Pastikan Fillable di PoinLog sudah: user_id, poin, source_type, source_id)
-                $jumlahPoin = floor($totalFinalHarga / 1000);
-                if ($jumlahPoin > 0) {
-                    PoinLog::create([
-                        'user_id'     => $setoran->nasabah_id,
-                        'poin'        => $jumlahPoin,
-                        'source_type' => 'setoran',
-                        'source_id'   => $setoran->id
-                    ]);
-                }
+    // =============================================================
+    // 2. LAPORKAN SALDO UANG KE MICROSERVICE (PORT 8001)
+    // =============================================================
+    try {
+        Http::withHeaders($headers)->post('http://127.0.0.1:8001/api/internal/add-balance', [
+            'user_id'           => $setoran->nasabah_id,
+            'amount'            => $finalAmount,
+            'setoran_id'        => $setoran->id,
+            'account_type'      => 'saldo',
+            'metode_pembayaran' => $request->metode_pembayaran ?? $setoran->metode_pembayaran
+        ]);
+    } catch (\Exception $e) {
+        Log::error("Gagal sync uang ke finance: " . $e->getMessage());
+    }
 
-                // C. Sinkronisasi ke Microservice Finance (Port 8001)
-                try {
-                    Http::withHeaders([
-                        'X-Internal-Key' => env('INTERNAL_API_KEY', 'TarhilalaSecretFinanceKey2024')
-                    ])->post('http://127.0.0.1:8001/api/internal/add-balance', [
-                        'user_id'           => $setoran->nasabah_id,
-                        'amount'            => $totalFinalHarga,
-                        'setoran_id'        => $setoran->id,
-                        'metode_pembayaran' => $request->metode_pembayaran
-                    ]);
-                } catch (\Exception $e) {
-                    Log::error("Finance Microservice Connection Error: " . $e->getMessage());
-                }
-            }
+    // =============================================================
+    // 3. LAPORKAN POIN (LOKAL & MICROSERVICE)
+    // =============================================================
+    $jumlahPoin = floor($finalAmount / 1000);
+    if ($jumlahPoin > 0) {
+        // Simpan log poin lokal (Port 8000)
+        try {
+            PoinLog::create([
+                'user_id'     => $setoran->nasabah_id,
+                'poin'        => $jumlahPoin,
+                'source_type' => 'setoran',
+                'source_id'   => $setoran->id
+            ]);
+        } catch (\Exception $e) { Log::error("Gagal simpan poin lokal: " . $e->getMessage()); }
+
+        // Kirim penambahan poin ke Brankas Finance (Port 8001)
+        try {
+            Http::withHeaders($headers)->post('http://127.0.0.1:8001/api/internal/add-balance', [
+                'user_id'           => $setoran->nasabah_id,
+                'amount'            => $jumlahPoin,
+                'setoran_id'        => $setoran->id,
+                'account_type'      => 'poin',
+                'metode_pembayaran' => 'saldo'
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Gagal sync poin ke finance: " . $e->getMessage());
+        }
+    }
+}
 
             return response()->json([
                 'status' => 'success',
@@ -172,4 +207,19 @@ class SetoranController extends Controller
         if (!$log) return response()->json(['status' => 'error', 'message' => 'Lokasi tidak ditemukan'], 404);
         return response()->json(['status' => 'success', 'data' => ['lat' => (float) $log->latitude, 'lng' => (float) $log->longitude]], 200);
     }
+
+    public function downloadInvoice($id)
+{
+    $setoran = Setoran::with(['nasabah', 'details.jenisSampah', 'invoice'])
+                ->findOrFail($id);
+
+    if ($setoran->status !== 'selesai' || !$setoran->invoice) {
+        return response()->json(['message' => 'Invoice belum tersedia'], 404);
+    }
+
+    $pdf = Pdf::loadView('pdf.invoice', compact('setoran'));
+
+    // Download file dengan nama invoice-nya
+    return $pdf->download('Invoice-' . $setoran->invoice->nomor_invoice . '.pdf');
+}
 }

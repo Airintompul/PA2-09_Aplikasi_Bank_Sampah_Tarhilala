@@ -96,6 +96,13 @@ const routes = [
         meta: { requiresAuth: true }
     },
 
+    {
+        path: '/redemption',
+        name: 'redemption',
+        component: () => import('@/Pages/Admin/Redemption/Index.vue'),
+        meta: { requiresAuth: true }
+    },
+
     // --- REDIRECTS ---
     {
         path: '/',

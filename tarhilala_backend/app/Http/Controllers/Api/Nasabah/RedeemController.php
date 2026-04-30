@@ -85,4 +85,19 @@ class RedeemController extends Controller
             }
         });
     }
+        public function riwayat(Request $request)
+    {
+        $user = auth()->user();
+
+        // Ambil riwayat penukaran beserta info barangnya (join ke tabel reward)
+        $riwayat = PenukaranReward::with('reward')
+                    ->where('user_id', $user->id)
+                    ->orderBy('tanggal_penukaran', 'desc')
+                    ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $riwayat
+        ]);
+    }
 }

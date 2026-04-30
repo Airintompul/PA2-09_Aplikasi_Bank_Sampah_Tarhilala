@@ -18,7 +18,6 @@ const currSetoran = ref({
     catatan: '',
     lat: '',
     lng: '',
-    // --- TAMBAHAN DATA AI ---
     ai: {
         id: '',
         class: '',
@@ -41,24 +40,44 @@ const fetchRequests = async () => {
     }
 };
 
+// --- LOGIC: DOWNLOAD INVOICE PDF ---
+const downloadInvoice = async (id) => {
+    try {
+        // Memanggil endpoint Laravel Port 8000
+        const response = await api.get(`/setoran/${id}/invoice`, {
+            responseType: 'blob', // WAJIB untuk file binary/PDF
+        });
+
+        // Membuat link download otomatis di browser
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Invoice-SET-${id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        alert("Gagal mengunduh invoice. Pastikan file invoice sudah digenerate di server.");
+    }
+};
+
 // --- LOGIC: UPDATE STATUS & VALIDASI AI ---
 const handleUpdate = async () => {
     try {
-        // 1. Update Operasional Setoran
         await api.put(`/setoran/${currSetoran.value.id}`, {
             status: currSetoran.value.status,
             berat_final: currSetoran.value.berat_final,
             catatan: currSetoran.value.catatan
         });
 
-        // 2. Simpan Validasi AI (Learning Process)
         await api.post(`/setoran/${currSetoran.value.id}/verify-ai`, {
             is_correct: currSetoran.value.ai.is_correct,
             admin_class: currSetoran.value.ai.admin_class
         });
 
         openEdit.value = false;
-        showSuccess("Data & Validasi AI Berhasil Diperbarui!");
+        showSuccess("Data Berhasil Diperbarui!");
         fetchRequests();
     } catch (error) {
         alert("Gagal memperbarui data");
@@ -75,7 +94,6 @@ const openEditModal = (req) => {
         catatan: req.catatan,
         lat: req.lokasi_lat,
         lng: req.lokasi_lng,
-        // Mapping data AI dari database
         ai: {
             class: req.ai_validation?.ai_class || 'N/A',
             confidence: req.ai_validation?.ai_confidence || 0,
@@ -138,7 +156,6 @@ onMounted(() => fetchRequests());
                                 <span class="text-[10px] text-gray-400 font-bold uppercase">ID: #SET-{{ req.id }}</span>
                             </div>
                         </td>
-                        <!-- KOLOM AI BARU -->
                         <td class="px-6 py-6 text-center">
                             <div v-if="req.ai_validation" class="flex flex-col">
                                 <span class="font-black uppercase text-gray-700">{{ req.ai_validation.ai_class }}</span>
@@ -164,9 +181,20 @@ onMounted(() => fetchRequests());
                         </td>
                         <td class="px-8 py-6 text-center">
                             <div class="flex justify-center space-x-2">
-                                <button @click="openEditModal(req)" class="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all">
+                                <!-- TOMBOL DINAMIS: INVOICE JIKA SELESAI, EDIT JIKA BELUM -->
+                                <button v-if="req.status === 'selesai'"
+                                        @click="downloadInvoice(req.id)"
+                                        class="p-3 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-600 hover:text-white transition-all shadow-sm"
+                                        title="Cetak Invoice PDF">
+                                    <i class="fa-solid fa-file-invoice"></i>
+                                </button>
+
+                                <button v-else
+                                        @click="openEditModal(req)"
+                                        class="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
+
                                 <router-link :to="'/setoran/' + req.id + '/tracking'" class="p-3 bg-[#41D3BD]/10 text-[#41D3BD] rounded-xl hover:bg-[#41D3BD] hover:text-white transition-all">
                                     <i class="fa-solid fa-map-location-dot"></i>
                                 </router-link>
@@ -178,49 +206,41 @@ onMounted(() => fetchRequests());
             <div class="h-6"></div>
         </div>
 
-        <!-- MODAL UPDATE + AI LEARNING -->
+        <!-- MODAL UPDATE + AI LEARNING (Tetap Sama) -->
         <div v-if="openEdit" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
             <div class="bg-white rounded-[3rem] max-w-5xl w-full p-10 shadow-2xl relative max-h-[90vh] overflow-y-auto">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
-
-                    <!-- KIRI: AI LEARNING CENTER -->
+                    <!-- Sisi Kiri: AI Learning Center -->
                     <div class="space-y-6">
                         <h3 class="text-xl font-black text-gray-700 uppercase tracking-widest border-b pb-4">AI Learning Center</h3>
-
-                        <!-- Foto dari Nasabah -->
                         <div class="w-full aspect-video bg-gray-100 rounded-3xl overflow-hidden border-4 border-white shadow-md">
-                            <img :src="'/storage/' + currSetoran.ai.image" class="w-full h-full object-cover" @error="(e) => e.target.src = '/assets/img/placeholder.png'">
+                            <img :src="'/storage/' + currSetoran.ai.image" class="w-full h-full object-cover">
                         </div>
-
                         <div class="bg-blue-50 p-6 rounded-[2rem] border border-blue-100">
                             <p class="text-[10px] font-black text-blue-400 uppercase mb-1">Prediksi AI Awal</p>
                             <p class="text-2xl font-black text-blue-800 uppercase">{{ currSetoran.ai.class }} ({{ (currSetoran.ai.confidence * 100).toFixed(0) }}%)</p>
                         </div>
-
                         <div class="space-y-4">
                             <p class="text-[10px] font-black text-gray-400 uppercase ml-2">Apakah Klasifikasi Diatas Benar?</p>
                             <div class="flex space-x-4">
-                                <button @click="currSetoran.ai.is_correct = 1" :class="currSetoran.ai.is_correct === 1 ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 text-gray-400'" class="flex-1 py-4 rounded-2xl font-black uppercase text-xs transition-all">Benar</button>
-                                <button @click="currSetoran.ai.is_correct = 0" :class="currSetoran.ai.is_correct === 0 ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-100 text-gray-400'" class="flex-1 py-4 rounded-2xl font-black uppercase text-xs transition-all">Salah</button>
+                                <button @click="currSetoran.ai.is_correct = 1" :class="currSetoran.ai.is_correct === 1 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'" class="flex-1 py-4 rounded-2xl font-black uppercase text-xs transition-all">Benar</button>
+                                <button @click="currSetoran.ai.is_correct = 0" :class="currSetoran.ai.is_correct === 0 ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-400'" class="flex-1 py-4 rounded-2xl font-black uppercase text-xs transition-all">Salah</button>
                             </div>
                         </div>
-
-                        <div v-if="currSetoran.ai.is_correct === 0" class="animate-pulse">
-                            <label class="text-[10px] font-black text-red-500 uppercase tracking-widest ml-2">Koreksi Admin (Dataset Baru)</label>
-                            <input v-model="currSetoran.ai.admin_class" type="text" placeholder="Masukkan jenis sampah yang benar..." class="w-full px-6 py-4 bg-red-50 border-none rounded-2xl focus:ring-2 focus:ring-red-400 outline-none font-bold text-gray-700">
+                        <div v-if="currSetoran.ai.is_correct === 0">
+                            <label class="text-[10px] font-black text-red-500 uppercase tracking-widest ml-2">Koreksi Admin</label>
+                            <input v-model="currSetoran.ai.admin_class" type="text" class="w-full px-6 py-4 bg-red-50 border-none rounded-2xl focus:ring-2 focus:ring-red-400 outline-none font-bold text-gray-700">
                         </div>
                     </div>
 
-                    <!-- KANAN: UPDATE OPERASIONAL -->
+                    <!-- Sisi Kanan: Pickup Status -->
                     <div class="space-y-6">
                         <h3 class="text-xl font-black text-gray-700 uppercase tracking-widest border-b pb-4 text-right">Pickup Status</h3>
-
                         <form @submit.prevent="handleUpdate" class="space-y-5">
                             <div class="bg-gray-50 p-6 rounded-[2rem] border border-gray-100">
                                 <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Nasabah</p>
                                 <p class="text-gray-800 font-black text-xl uppercase tracking-tighter">{{ currSetoran.nasabah }}</p>
                             </div>
-
                             <div>
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Update Status</label>
                                 <select v-model="currSetoran.status" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-black text-gray-700 uppercase text-xs">
@@ -231,30 +251,22 @@ onMounted(() => fetchRequests());
                                     <option value="dibatalkan">DIBATALKAN</option>
                                 </select>
                             </div>
-
                             <div>
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Berat Final (Kg)</label>
-                                <input v-model="currSetoran.berat_final" type="number" step="0.01" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-400 outline-none font-black text-blue-600 text-lg">
+                                <input v-model="currSetoran.berat_final" type="number" step="0.01" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-400 font-black text-blue-600 text-lg">
                             </div>
-
                             <div>
                                 <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Catatan</label>
-                                <textarea v-model="currSetoran.catatan" rows="2" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700 text-sm"></textarea>
+                                <textarea v-model="currSetoran.catatan" rows="2" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] font-bold text-gray-700 text-sm"></textarea>
                             </div>
-
                             <div class="flex justify-end space-x-3 pt-6 border-t border-gray-50">
                                 <button @click="openEdit = false" type="button" class="px-8 py-4 bg-gray-100 rounded-2xl font-black text-gray-400 uppercase text-xs">Batal</button>
-                                <button type="submit" class="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200 uppercase text-xs tracking-widest hover:scale-105 transition-all">Simpan Perubahan</button>
+                                <button type="submit" class="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-200 uppercase text-xs hover:scale-105 transition-all">Simpan Perubahan</button>
                             </div>
                         </form>
                     </div>
-
                 </div>
             </div>
         </div>
     </AdminLayout>
 </template>
-
-<style scoped>
-[x-cloak] { display: none !important; }
-</style>
