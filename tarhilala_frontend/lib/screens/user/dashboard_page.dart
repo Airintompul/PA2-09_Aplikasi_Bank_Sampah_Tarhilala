@@ -15,7 +15,9 @@ import '../user/detail_berita_page.dart';
 import '../user/semua_berita_page.dart';
 import '../user/reward_page.dart';
 import '../user/panduan_jual_sampah_page.dart';
-import '../user/riwayat_reward_page.dart';
+import '../user/penarikan_saldo_page.dart';
+import '../user/jadwal_penjemputan_page.dart';
+import '../user/chat_page.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/intl.dart'; // Untuk format Rupiah
 
@@ -36,6 +38,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   String saldoUser = "0";
   String poinUser = "0";
   bool isLoadingStats = true;
+  bool isBalanceVisible = false; 
 
   late PageController _newsPageController;
   Timer? _newsTimer;
@@ -162,9 +165,9 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   Widget _getPage() {
     switch (currentIndex) {
       case 0: return _dashboardContent();
-      case 1: return const Center(child: Text("Transaksi"));
+      case 1: return const TransaksiPage();
       case 2: return const RiwayatSetoranPage();
-      case 3: return const RewardPage();
+      case 3: return const RewardPage(showBackButton: false,);
       case 4: return const ProfilePage();
       default: return _dashboardContent();
     }
@@ -228,64 +231,88 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   }
 
   Widget _buildSaldoCard() {
-    return Padding(
+  return Padding(
+    padding: const EdgeInsets.all(20),
+    child: Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF3B71CA), Color(0xFF54B4D3)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF3B71CA), Color(0xFF54B4D3)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Saldo Tabungan", style: TextStyle(color: Colors.white70, fontSize: 13)),
-            const SizedBox(height: 15),
-            Row(
-              children: [
-                const CircleAvatar(
-                  radius: 35,
-                  backgroundColor: Colors.white24,
-                  child: Icon(Icons.person, size: 40, color: Colors.white),
-                ),
-                const SizedBox(width: 15),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("Total", style: TextStyle(color: Colors.white70, fontSize: 14)),
-                    Text(
-                      saldoUser, 
-                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(namaUser, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                Row(
-                  children: [
-                    const Icon(Icons.stars, color: Colors.amber, size: 18),
-                    const SizedBox(width: 5),
-                    Text("$poinUser Poin", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ],
-                )
-              ],
-            )
-          ],
-        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
       ),
-    );
-  }
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Baris Pertama (Judul + Ikon Mata)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Saldo Tabungan", style: TextStyle(color: Colors.white70, fontSize: 13)),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    isBalanceVisible = !isBalanceVisible;
+                  });
+                },
+                child: Icon(
+                  isBalanceVisible ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.white70,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Row(
+            children: [
+              const CircleAvatar(
+                radius: 35,
+                backgroundColor: Colors.white24,
+                child: Icon(Icons.person, size: 40, color: Colors.white),
+              ),
+              const SizedBox(width: 15),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Total", style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  Text(
+                    isBalanceVisible ? saldoUser : "Rp •••", 
+                    style: TextStyle(
+                      color: Colors.white, 
+                      fontSize: 24, 
+                      fontWeight: FontWeight.bold,
+                      // Hilangkan const jika ingin menggunakan dynamic letterSpacing
+                      letterSpacing: isBalanceVisible ? 0 : 2, 
+                    )
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(namaUser, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+              Row(
+                children: [
+                  const Icon(Icons.stars, color: Colors.amber, size: 18),
+                  const SizedBox(width: 5),
+                  Text("$poinUser Poin", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ],
+              )
+            ],
+          )
+        ],
+      ),
+    ),
+  );
+}
 
   // --- UI LAINNYA TETAP SAMA ---
   Widget _menuItem(IconData icon, String title, Color color, VoidCallback onTap) {
@@ -316,7 +343,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const RiwayatSetoranPage()));
           }),
           _menuItem(Icons.calendar_today, "Jadwal", const Color(0xFFF9AB40), () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const RiwayatSetoranPage()));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const JadwalPenjemputanPage()));
           }),
           _menuItem(Icons.help_outline, "Panduan", const Color(0xFF4FD3C4), () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const PanduanJualSampahPage()));
@@ -324,13 +351,20 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
           _menuItem(Icons.local_offer, "Harga", const Color(0xFF48A9FE), () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const SemuaSampahPage()));
           }),
-          _menuItem(Icons.support_agent, "Bantuan", const Color(0xFFFF8A80), () {}),
+          _menuItem(Icons.support_agent, "Bantuan", const Color(0xFFFF8A80), () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatPage()));
+          }),
           _menuItem(Icons.receipt_long, "Transaksi", const Color(0xFFBA68C8), () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const RiwayatSetoranPage()));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const TransaksiPage()));
           }),
           _menuItem(Icons.radio_button_checked, "Poin", const Color(0xFF7986CB), () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const RiwayatRewardPage()));
-          }),
+              Navigator.push(
+                context, 
+                MaterialPageRoute(
+                  builder: (context) => const RewardPage(showBackButton: true) 
+                )
+              );
+            }),
           _menuItem(Icons.newspaper, "Berita", const Color(0xFFD4A017), () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const SemuaBeritaPage()));
           }),

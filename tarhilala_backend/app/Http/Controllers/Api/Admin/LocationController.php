@@ -81,6 +81,28 @@ class LocationController extends Controller
         return response()->json(['status' => 'success', 'data' => $schedule], 201);
     }
 
+    public function getJadwalNasabah()
+{
+    $jadwal = DB::table('jadwal_penjemputan')
+        ->join('rute', 'jadwal_penjemputan.rute_id', '=', 'rute.id')
+        ->join('users', 'jadwal_penjemputan.driver_id', '=', 'users.id')
+        ->select(
+            'jadwal_penjemputan.hari',
+            'jadwal_penjemputan.jam_mulai',
+            'jadwal_penjemputan.jam_selesai',
+            'rute.nama_rute',
+            'rute.wilayah',
+            'users.nama as nama_driver'
+        )
+        ->orderBy('jadwal_penjemputan.hari', 'asc')
+        ->get();
+
+    return response()->json([
+        'status' => 'success',
+        'data' => $jadwal
+    ]);
+}
+
     public function updateSchedule(Request $request, $id)
     {
         $schedule = JadwalPenjemputan::findOrFail($id);

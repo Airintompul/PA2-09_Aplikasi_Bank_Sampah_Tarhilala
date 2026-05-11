@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
-import 'widgets/top_navbar.dart';
-import 'change_email_page.dart';
-import 'chat_page.dart';
-import '../user/dashboard_page.dart';
+import '../user/widgets/top_navbar.dart';
+import '../petugas/widgets/bottom_navbar.dart';
+import '../user/change_email_page.dart';
+import '../petugas/dashboard_page.dart';
+import 'petugas_transaksi_page.dart';
+import 'petugas_setoran_page.dart';
+import 'petugas_rute_page.dart';
 
-class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+class PetugasProfilePage extends StatefulWidget {
+  const PetugasProfilePage({super.key});
 
   @override
-  State<ProfilePage> createState() => _ProfilePageState();
+  State<PetugasProfilePage> createState() => _PetugasProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _PetugasProfilePageState extends State<PetugasProfilePage> {
   String name = "";
   String email = "";
   String role = "";
@@ -29,7 +32,7 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       name = prefs.getString('name') ?? 'Nama tidak tersedia';
       email = prefs.getString('email') ?? 'Email tidak tersedia';
-      role = prefs.getString('role') ?? 'Nasabah';
+      role = prefs.getString('role') ?? 'Driver Lapangan';
     });
   }
 
@@ -69,7 +72,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       children: [
                         const CircleAvatar(
                           radius: 45,
-                          backgroundColor: Color(0xFF3B71CA), // Warna Nasabah
+                          backgroundColor: Color(0xFF154C94),
                           child: Icon(Icons.person, size: 50, color: Colors.white),
                         ),
                         const SizedBox(height: 15),
@@ -90,13 +93,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF3B71CA).withOpacity(0.1),
+                            color: const Color(0xFF154C94).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             role.toUpperCase(),
                             style: const TextStyle(
-                              color: Color(0xFF3B71CA),
+                              color: Color(0xFF154C94),
                               fontWeight: FontWeight.bold,
                               fontSize: 10,
                             ),
@@ -118,6 +121,22 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
+
+      // 3. BOTTOM NAVBAR PETUGAS
+      bottomNavigationBar: PetugasBottomNavbar(
+        currentIndex: 3, // Index 3 adalah menu Akun
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PetugasDashboardPage()));
+          } else if (index == 1) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PetugasTransaksiPage()));
+          } else if (index == 2) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PetugasSetoranPage()));
+          } else if (index == 4) {
+            // Logika pindah ke Rute/Map jika data listRute tersedia
+          }
+        },
+      ),
     );
   }
 
@@ -129,12 +148,6 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: Column(
         children: [
-          _menuItem(Icons.chat_bubble_rounded, "Chat Admin", () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ChatPage()),
-            );
-          }),
           _menuItem(Icons.lock_reset_rounded, "Ubah Password", () {
             Navigator.push(
               context,
@@ -151,7 +164,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       children: [
         ListTile(
-          leading: Icon(icon, color: const Color(0xFF3B71CA)),
+          leading: Icon(icon, color: const Color(0xFF154C94)),
           title: Text(
             title,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
@@ -171,7 +184,7 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text("Konfirmasi Keluar", style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text("Apakah Anda yakin ingin keluar dari aplikasi?"),
+        content: const Text("Apakah Anda yakin ingin keluar dari akun petugas?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

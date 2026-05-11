@@ -6,18 +6,20 @@ class SetoranModel {
   final int? jadwalId;
   final String tanggalPengajuan;
   final String status;
-  final double? totalBerat; // Di SQL: total_berat DECIMAL(10,2)
+  final double? totalBerat; 
   final double? totalHarga;
-  final String metodePembayaran; // Di SQL: total_harga DECIMAL(12,2)
+  final String metodePembayaran; 
   final String? catatan;
   final String? createdAt;
 
   // Field tambahan dari Relasi (JOIN)
-  final String nasabahNama; // Dari tabel users
-  final String? hasilAi;    // Dari tabel validasi (hasil_ai)
-  final double? confidenceScore; // Dari tabel validasi (confidence_score)
+  final String nasabahNama; 
+  final String? alamat; 
+  final String? lat;    
+  final String? lng;    
+  final String? hasilAi;    
+  final double? confidenceScore; 
   
-  // Rincian Item Sampah (Relasi ke tabel detail_setoran)
   final List<DetailSetoranModel> rincianSampah;
 
   SetoranModel({
@@ -31,6 +33,9 @@ class SetoranModel {
     this.catatan,
     this.createdAt,
     required this.nasabahNama,
+    this.alamat,
+    this.lat,
+    this.lng,
     this.hasilAi,
     required this.metodePembayaran,
     this.confidenceScore,
@@ -38,7 +43,6 @@ class SetoranModel {
   });
 
   factory SetoranModel.fromJson(Map<String, dynamic> json) {
-    // Parsing List Detail Setoran dari JSON
     var listDetail = json['details'] as List? ?? [];
     List<DetailSetoranModel> rincianParsed = 
         listDetail.map((i) => DetailSetoranModel.fromJson(i)).toList();
@@ -50,15 +54,26 @@ class SetoranModel {
       tanggalPengajuan: json['tanggal_pengajuan'] ?? '',
       status: json['status'] ?? 'menunggu',
       
-      totalBerat: json['total_berat'] != null ? double.parse(json['total_berat'].toString()) : null,
-      totalHarga: json['total_harga'] != null ? double.parse(json['total_harga'].toString()) : null,
+      // --- PERBAIKAN LOGIKA BERAT DI SINI ---
+      // Jika berat_final ada (sudah selesai), pakai itu. 
+      // Jika tidak ada, coba pakai estimasi_berat.
+      totalBerat: json['berat_final'] != null 
+          ? double.parse(json['berat_final'].toString()) 
+          : (json['estimasi_berat'] != null 
+              ? double.parse(json['estimasi_berat'].toString()) 
+              : 0.0),
+      // --------------------------------------
+
+      totalHarga: json['total_harga'] != null ? double.parse(json['total_harga'].toString()) : 0.0,
       
       catatan: json['catatan'],
       createdAt: json['created_at'],
+      metodePembayaran: json['metode_pembayaran'] ?? 'saldo',
 
       nasabahNama: json['nasabah'] != null ? json['nasabah']['nama'] : "Nasabah",
-
-      metodePembayaran: json['metode_pembayaran'] ?? 'saldo',
+      lat: json['lokasi_lat']?.toString(), 
+      lng: json['lokasi_lng']?.toString(),
+      alamat: null, 
 
       hasilAi: json['ai_validation'] != null ? json['ai_validation']['ai_class'] : null,
       confidenceScore: json['ai_validation'] != null 
@@ -74,11 +89,10 @@ class SetoranModel {
   }
 }
 
-// Class baru untuk menampung data dari tabel detail_setoran
 class DetailSetoranModel {
   final int id;
   final int jenisSampahId;
-  final String namaSampah; // Diambil dari relasi ke tabel jenis_sampah
+  final String namaSampah; 
   final double berat;
   final double hargaSatuan;
   final double subtotal;
@@ -96,29 +110,10 @@ class DetailSetoranModel {
     return DetailSetoranModel(
       id: json['id'] ?? 0,
       jenisSampahId: json['jenis_sampah_id'] ?? 0,
-      // Mengambil nama sampah dari relasi 'jenis_sampah' di Laravel
       namaSampah: json['jenis_sampah'] != null ? json['jenis_sampah']['nama'] : "Sampah",
       berat: double.parse(json['berat'].toString()),
       hargaSatuan: double.parse(json['harga_satuan'].toString()),
       subtotal: double.parse(json['subtotal'].toString()),
-    );
-  }
-}
-
-class DetailItemSampah {
-  final int id; // ID detail_setoran
-  final String namaSampah;
-  final double estimasiBerat;
-  double hargaSatuan; // Jadikan non-final agar bisa diubah
-
-  DetailItemSampah({required this.id, required this.namaSampah, required this.estimasiBerat, required this.hargaSatuan});
-
-  factory DetailItemSampah.fromJson(Map<String, dynamic> json) {
-    return DetailItemSampah(
-      id: json['id'],
-      namaSampah: json['jenis_sampah']['nama'],
-      estimasiBerat: double.parse(json['berat'].toString()),
-      hargaSatuan: double.parse(json['harga_satuan'].toString()),
     );
   }
 }

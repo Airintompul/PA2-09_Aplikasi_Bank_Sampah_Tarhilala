@@ -1,10 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart'; // Import package ini
 import 'package:url_launcher/url_launcher.dart';
+import '../../models/setoran_model.dart';
 import '../user/widgets/top_navbar.dart';
 
 class PetugasRutePage extends StatefulWidget {
-  final List<dynamic> ruteData; // Data dari dashboard
-
+  final List<SetoranModel> ruteData;
   const PetugasRutePage({super.key, required this.ruteData});
 
   @override
@@ -12,117 +17,144 @@ class PetugasRutePage extends StatefulWidget {
 }
 
 class _PetugasRutePageState extends State<PetugasRutePage> {
+  final MapController _mapController = MapController();
+  StreamSubscription<Position>? _positionStream;
   
-  // Fungsi untuk buka Google Maps (Satu titik atau semua rute)
-  Future<void> _openGoogleMaps(String query) async {
-    final url = "https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}";
-    if (await canLaunchUrl(Uri.parse(url))) {
-      await launchUrl(Uri.parse(url));
+  // Penyimpanan sementara untuk alamat yang berhasil diterjemahkan
+  Map<int, String> resolvedAddresses = {}; 
+
+  LatLng _driverLocation = const LatLng(-6.192, 108.8667); 
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _startLocationTracking();
+    _convertAllCoordinates(); // Terjemahkan semua koordinat saat start
+  }
+
+  // Fungsi untuk mengubah koordinat menjadi Nama Jalan
+  Future<void> _convertAllCoordinates() async {
+    for (var item in widget.ruteData) {
+      double lat = double.tryParse(item.lat ?? "0") ?? 0;
+      double lng = double.tryParse(item.lng ?? "0") ?? 0;
+
+      if (lat != 0 && lng != 0) {
+        try {
+          // Proses Reverse Geocoding
+          List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+          if (placemarks.isNotEmpty) {
+            Placemark place = placemarks[0];
+            setState(() {
+              // Format Alamat: Nama Jalan, Kelurahan, Kota
+              resolvedAddresses[item.id] = "${place.street}, ${place.subLocality}, ${place.locality}";
+            });
+          }
+        } catch (e) {
+          debugPrint("Gagal ambil alamat untuk ID ${item.id}: $e");
+        }
+      }
     }
   }
 
   @override
+  void dispose() {
+    _positionStream?.cancel();
+    super.dispose();
+  }
+
+  void _startLocationTracking() async {
+    // ... (kode GPS driver sama seperti sebelumnya) ...
+    Position pos = await Geolocator.getCurrentPosition();
+    if (mounted) {
+      setState(() {
+        _driverLocation = LatLng(pos.latitude, pos.longitude);
+        _isLoading = false;
+      });
+      _mapController.move(_driverLocation, 14.0);
+    }
+  }
+
+  void _moveToPoint(double lat, double lng) {
+    _mapController.move(LatLng(lat, lng), 17.0);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final filteredData = widget.ruteData.where((item) => item.status != 'selesai').toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F4F4),
       body: Column(
         children: [
           const TopNavbar(),
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.40,
+            child: Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _driverLocation,
+                    initialZoom: 14.0,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.tarhilala.app',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _driverLocation,
+                          width: 40, height: 40,
+                          child: const Icon(Icons.navigation, color: Colors.blue, size: 30),
+                        ),
+                        ...filteredData.map((item) {
+                          double lat = double.tryParse(item.lat ?? "0") ?? 0;
+                          double lng = double.tryParse(item.lng ?? "0") ?? 0;
+                          if (lat == 0) return const Marker(point: LatLng(0,0), child: SizedBox());
+                          return Marker(
+                            point: LatLng(lat, lng),
+                            width: 35, height: 35,
+                            child: const Icon(Icons.location_on, color: Colors.red, size: 35),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ],
+                ),
+                Positioned(
+                  top: 10, left: 10,
+                  child: FloatingActionButton.small(
+                    heroTag: "btn_back",
+                    onPressed: () => Navigator.pop(context),
+                    backgroundColor: Colors.white,
+                    child: const Icon(Icons.arrow_back, color: Colors.black),
+                  ),
+                ),
+              ],
+            ),
+          ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 20),
-                  
-                  // 1. HEADER TITLE CARD
-                  Container(
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.reply, color: Colors.black),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        const Text(
-                          "Rute Pengambilan",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                        ),
-                      ],
-                    ),
-                  ),
+                  const Text("Daftar Penjemputan Aktif", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 15),
+                  if (filteredData.isEmpty)
+                    const Center(child: Text("Semua tugas selesai!"))
+                  else
+                    ...filteredData.asMap().entries.map((entry) {
+                      var item = entry.value;
+                      bool isLast = entry.key == filteredData.length - 1;
+                      double tLat = double.tryParse(item.lat ?? "0") ?? 0;
+                      double tLng = double.tryParse(item.lng ?? "0") ?? 0;
 
-                  const SizedBox(height: 20),
-
-                  // 2. SUMMARY STATS (Titik, Jarak, Selesai, Waktu)
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildSummaryItem("5", "Titik"),
-                        _buildSummaryItem("10 km", "Total Jarak"),
-                        _buildSummaryItem("1/3", "Selesai"),
-                        _buildSummaryItem("3", "Sisa Waktu"),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // 3. TOMBOL BUKA SEMUA RUTE
-                  SizedBox(
-                    width: double.infinity,
-                    height: 60,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openGoogleMaps("Tempat Pembuangan Sampah Terdekat"),
-                      icon: const Icon(Icons.location_on_outlined, color: Colors.white),
-                      label: const Text(
-                        "Buka Semua Rute di Google Maps",
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF34A8F0),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 4,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-                  const Text(
-                    "Daftar Titik Pengambilan",
-                    style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // 4. TIMELINE LIST RUTE
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: widget.ruteData.asMap().entries.map((entry) {
-                        int index = entry.key;
-                        var item = entry.value;
-                        bool isLast = index == widget.ruteData.length - 1;
-
-                        return _buildTimelineItem(item, isLast);
-                      }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 100),
+                      return _buildTimelineItem(item, isLast, tLat, tLng);
+                    }).toList(),
                 ],
               ),
             ),
@@ -132,129 +164,43 @@ class _PetugasRutePageState extends State<PetugasRutePage> {
     );
   }
 
-  // Widget: Summary Item
-  Widget _buildSummaryItem(String value, String label) {
-    return Column(
-      children: [
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        const SizedBox(height: 5),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-      ],
-    );
-  }
-
-  // Widget: Timeline Item (Steppers)
-  Widget _buildTimelineItem(dynamic item, bool isLast) {
-    String status = item['status'] ?? 'menunggu';
-    Color color = status == 'selesai' ? Colors.green : (status == 'diproses' ? const Color(0xFF8B6B8E) : Colors.grey);
-    
+  Widget _buildTimelineItem(SetoranModel item, bool isLast, double lat, double lng) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Kolom Garis Timeline
         Column(
           children: [
-            Container(
-              width: 18, height: 18,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            if (!isLast)
-              Container(width: 2, height: status == 'diproses' ? 140 : 80, color: Colors.grey.shade300),
+            const Icon(Icons.circle, size: 16, color: Colors.orange),
+            if (!isLast) Container(width: 2, height: 90, color: Colors.grey.shade300),
           ],
         ),
         const SizedBox(width: 15),
-        
-        // Kolom Konten
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      item['alamat'] ?? "Alamat",
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                  ),
-                  _buildStatusBadge(status),
-                ],
-              ),
+              // MENAMPILKAN ALAMAT DINAMIS HASIL TRANSLATE KOORDINAT
               Text(
-                "${item['nama']}. ${item['ket']} . 07:30",
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                resolvedAddresses[item.id] ?? "Mencari alamat...", 
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
-              Text(
-                "-6.192, 108.8667", // Simulasi Koordinat
-                style: const TextStyle(color: Colors.grey, fontSize: 10),
-              ),
-              
+              Text("Nasabah: ${item.nasabahNama}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
               const SizedBox(height: 10),
-
-              // Tombol khusus untuk status tertentu
-              if (status == 'selesai')
-                _buildSmallMapsButton(item['alamat']),
               
-              if (status == 'diproses')
-                _buildLargeNavButton(item['alamat']),
-
-              const SizedBox(height: 30),
+              ElevatedButton.icon(
+                onPressed: (lat != 0) ? () => _moveToPoint(lat, lng) : null,
+                icon: const Icon(Icons.map, size: 16),
+                label: const Text("Cek Map", style: TextStyle(fontSize: 11)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2196F3), 
+                  foregroundColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 25),
             ],
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildStatusBadge(String status) {
-    String label = "Menunggu";
-    Color bgColor = Colors.grey.shade100;
-    Color txtColor = Colors.grey;
-
-    if (status == 'selesai') {
-      label = "Selesai";
-      bgColor = const Color(0xFFE8F5E9);
-      txtColor = Colors.green;
-    } else if (status == 'diproses') {
-      label = "Berikutnya";
-      bgColor = const Color(0xFFFFF9C4);
-      txtColor = Colors.orange;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(6)),
-      child: Text(label, style: TextStyle(color: txtColor, fontWeight: FontWeight.bold, fontSize: 10)),
-    );
-  }
-
-  Widget _buildSmallMapsButton(String alamat) {
-    return OutlinedButton.icon(
-      onPressed: () => _openGoogleMaps(alamat),
-      icon: const Icon(Icons.location_on, size: 14, color: Color(0xFF154C94)),
-      label: const Text("Buka Maps", style: TextStyle(fontSize: 10, color: Color(0xFF154C94))),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        side: const BorderSide(color: Color(0xFF154C94)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-      ),
-    );
-  }
-
-  Widget _buildLargeNavButton(String alamat) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton.icon(
-        onPressed: () => _openGoogleMaps(alamat),
-        icon: const Icon(Icons.person_pin_circle_outlined, color: Colors.white),
-        label: const Text("Navigasi ke sini sekarang", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF34A8F0),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      ),
     );
   }
 }

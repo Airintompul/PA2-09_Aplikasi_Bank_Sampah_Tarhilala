@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:geolocator/geolocator.dart'; 
-import '../../services/auth_service.dart';
-import '../../services/pickup_service.dart'; // Import Service
-import '../../models/setoran_model.dart';   // Import Model
+import '../../services/pickup_service.dart';
+import '../../models/setoran_model.dart';  
 import '../user/widgets/top_navbar.dart';
 import 'petugas_rute_page.dart'; 
 import 'petugas_setoran_page.dart';
+import 'petugas_transaksi_page.dart';
+import 'petugas_profile_page.dart'; 
+import '../petugas/widgets/bottom_navbar.dart'; // Pastikan path ini benar
 
 class PetugasDashboardPage extends StatefulWidget {
   const PetugasDashboardPage({super.key});
@@ -18,16 +19,14 @@ class PetugasDashboardPage extends StatefulWidget {
 class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
   String nama = "";
   bool isLoading = true;
-  final PickupService _pickupService = PickupService(); // Inisialisasi Service
+  final PickupService _pickupService = PickupService(); 
   
-  // Data State
   Map<String, dynamic> stats = {
     'total_tugas': 0,
     'selesai': 0,
     'sisa': 0,
     'total_kg': 0,
     'pendapatan': '0',
-    'jarak': 0,
   };
 
   List<SetoranModel> listRute = [];
@@ -51,17 +50,12 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
     });
   }
 
-  // Fungsi Fetch Data REAL dari API Laravel 
   Future<void> fetchDataDashboard() async {
     setState(() => isLoading = true);
     try {
-      // Ambil data asli dari API
       final data = await _pickupService.getSetoranRequests();
-
       setState(() {
         listRute = data;
-
-        // Hitung Statistik Otomatis
         int selesai = data.where((s) => s.status == 'selesai').length;
         double totalKg = data.fold(0.0, (sum, item) => sum + (item.totalBerat ?? 0));
 
@@ -69,30 +63,20 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
           'total_tugas': data.length,
           'selesai': selesai,
           'sisa': data.length - selesai,
-          'total_kg': totalKg.toInt(),
-          'pendapatan': '0', // Bisa dikembangkan dari total_harga di DB
-          'jarak': 0,
+          'total_kg': totalKg,
+          'pendapatan': '0',
         };
 
-        // Cari tugas terdekat yang belum selesai
         try {
           setoranBerikutnya = data.firstWhere((s) => s.status != 'selesai');
         } catch (e) {
           setoranBerikutnya = null;
         }
-
         isLoading = false;
       });
     } catch (e) {
-      debugPrint("Error fetching dashboard: $e");
       setState(() => isLoading = false);
     }
-  }
-
-  void logout() async {
-    await AuthService.logout();
-    if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
   }
 
   @override
@@ -107,91 +91,60 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
               children: [
-                // 1. HEADER (Navbar + Profil)
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const TopNavbar(), 
-                    Positioned(
-                      top: 45,
-                      right: 15,
-                      child: IconButton(
-                        icon: const Icon(Icons.logout, color: Colors.white),
-                        onPressed: _showLogoutDialog,
-                      ),
-                    ),
-                    Positioned(
-                      top: 100, 
-                      left: 20,
-                      right: 20,
-                      child: _buildProfileCard(),
-                    ),
-                  ],
-                ),
-
+                _buildHeaderSection(),
                 const SizedBox(height: 75),
-
-                // 2. GRID STATISTIK
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 15,
-                    mainAxisSpacing: 15,
-                    childAspectRatio: 1.4,
-                    children: [
-                      _buildStatCard("Tugas hari ini", "${stats['total_tugas']}", "${stats['selesai']} selesai ${stats['sisa']} sisa"),
-                      _buildStatCard("Total sampah", "${stats['total_kg']}", "Total hari ini", unit: "Kg"),
-                      _buildStatCard("Setoran masuk", "${stats['pendapatan']}", "Estimasi", prefix: "Rp "),
-                      _buildStatCard("Jarak rute", "0", "Wilayah Tugas", unit: "km"),
-                    ],
-                  ),
-                ),
-
+                _buildStatsGrid(),
                 const SizedBox(height: 25),
-
-                // 3. SETORAN BERIKUTNYA
                 _buildSectionLabel("Setoran Berikutnya"),
-                if (setoranBerikutnya != null) 
-                  _buildNextDepositCard()
-                else
-                  const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Center(child: Text("Tidak ada tugas tersisa hari ini")),
-                  ),
-
+                setoranBerikutnya != null 
+                  ? _buildNextDepositCard()
+                  : _buildEmptyState("Tidak ada tugas tersisa hari ini"),
                 const SizedBox(height: 25),
-
-                // 4. AKTIVITAS TERBARU
                 _buildSectionLabel("Aktivitas Penjemputan"),
                 _buildRouteTimeline(),
-
                 const SizedBox(height: 100), 
               ],
             ),
           ),
         ),
 
-      // 5. FLOATING ACTION BUTTON PETA
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => PetugasRutePage(ruteData: listRute)),
-          );
+      bottomNavigationBar: PetugasBottomNavbar(
+        currentIndex: 0, 
+        onTap: (index) {
+          if (index == 1) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PetugasTransaksiPage()));
+          } else if (index == 4) { 
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => PetugasRutePage(ruteData: listRute)),
+            );
+          } else if (index == 2) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PetugasSetoranPage()));
+          } else if (index == 3) {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PetugasProfilePage()));
+          }
         },
-        backgroundColor: const Color(0xFF154C94),
-        elevation: 6,
-        child: const Icon(Icons.location_on, color: Colors.white, size: 30),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _buildBottomAppBar(),
     );
   }
 
-  // --- WIDGET HELPERS ---
+  // --- WIDGET HELPER ---
+
+  Widget _buildHeaderSection() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const TopNavbar(), 
+        // Bagian Logout sudah dihapus dari sini
+        Positioned(
+          top: 100, 
+          left: 20,
+          right: 20,
+          child: _buildProfileCard(),
+        ),
+      ],
+    );
+  }
 
   Widget _buildProfileCard() {
     return Container(
@@ -199,7 +152,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         children: [
@@ -221,14 +174,30 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
     );
   }
 
+  Widget _buildStatsGrid() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 2,
+        crossAxisSpacing: 15,
+        mainAxisSpacing: 15,
+        childAspectRatio: 1.4,
+        children: [
+          _buildStatCard("Tugas hari ini", "${stats['total_tugas']}", "${stats['selesai']} selesai ${stats['sisa']} sisa"),
+          _buildStatCard("Total sampah", "${stats['total_kg'].toStringAsFixed(1)}", "Total hari ini", unit: "Kg"),
+          _buildStatCard("Setoran masuk", "${stats['pendapatan']}", "Estimasi", prefix: "Rp "),
+          _buildStatCard("Jarak rute", "0", "Wilayah Tugas", unit: "km"),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatCard(String title, String value, String sub, {String? unit, String? prefix}) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white, 
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4)],
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -237,7 +206,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
           const SizedBox(height: 4),
           RichText(
             text: TextSpan(
-              style: const TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
               children: [
                 if (prefix != null) TextSpan(text: prefix, style: const TextStyle(fontSize: 14)),
                 TextSpan(text: value),
@@ -255,7 +224,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: InkWell(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PetugasSetoranPage())),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const PetugasSetoranPage())).then((_) => fetchDataDashboard()),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white, 
@@ -266,10 +235,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
             children: [
               Container(
                 padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50, 
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                ),
+                decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
                 child: Row(
                   children: [
                     const Icon(Icons.location_on, color: Color(0xFF154C94), size: 20),
@@ -289,16 +255,12 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
   }
 
   Widget _buildRouteTimeline() {
-    // Tampilkan 3 data terbaru
     var displayList = listRute.take(3).toList();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white, 
-          borderRadius: BorderRadius.circular(12),
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
         child: Column(
           children: displayList.asMap().entries.map((entry) {
             var item = entry.value;
@@ -316,50 +278,17 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
     );
   }
 
-  Widget _buildBottomAppBar() {
-    return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      child: SizedBox(
-        height: 60,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _navItem(Icons.home, "Beranda", true),
-            _navItem(Icons.assignment, "Transaksi", false),
-            const SizedBox(width: 40), 
-            _navItem(Icons.receipt_long, "Setoran", false, onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const PetugasSetoranPage()),
-              );
-            }),
-            _navItem(Icons.person, "Akun", false),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(IconData icon, String label, bool active, {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: active ? const Color(0xFF154C94) : Colors.grey, size: 24),
-          Text(label, style: TextStyle(color: active ? const Color(0xFF154C94) : Colors.grey, fontSize: 10)),
-        ],
-      ),
+  Widget _buildEmptyState(String msg) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Center(child: Text(msg, style: const TextStyle(color: Colors.grey))),
     );
   }
 
   Widget _detailRow(String label, String value, {Color? color, bool isLast = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: isLast ? Colors.transparent : Colors.grey.shade100)),
-      ),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: isLast ? Colors.transparent : Colors.grey.shade100))),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -402,24 +331,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
   Widget _buildSectionLabel(String label) {
     return Padding(
       padding: const EdgeInsets.only(left: 20, bottom: 10),
-      child: Align(
-        alignment: Alignment.centerLeft, 
-        child: Text(label, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-      ),
-    );
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text("Logout"), 
-        content: const Text("Apakah Anda yakin ingin keluar?"),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text("Batal")),
-          TextButton(onPressed: () { Navigator.pop(c); logout(); }, child: const Text("Logout")),
-        ],
-      ),
+      child: Align(alignment: Alignment.centerLeft, child: Text(label, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13))),
     );
   }
 }

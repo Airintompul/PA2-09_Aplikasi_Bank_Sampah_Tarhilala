@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/chat_service.dart';
+import 'widgets/top_navbar.dart'; // Import Navbar konsisten
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -13,10 +14,9 @@ class _ChatPageState extends State<ChatPage> {
   int? roomId;
   List messages = [];
   int? userId;
-
   bool isPolling = true;
-
   final TextEditingController controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -37,45 +37,61 @@ class _ChatPageState extends State<ChatPage> {
       roomId = id;
       messages = msgs;
     });
-
+    
+    _scrollToBottom();
     startPolling();
   }
 
   void startPolling() async {
     while (isPolling) {
       await Future.delayed(const Duration(seconds: 3));
-
       if (!mounted || roomId == null) return;
 
       final msgs = await ChatService.getMessages(roomId!);
-
       if (!mounted) return;
 
-      setState(() {
-        messages = msgs;
-      });
+      if (msgs.length != messages.length) {
+        setState(() {
+          messages = msgs;
+        });
+        _scrollToBottom();
+      }
     }
   }
 
-  Future<void> sendMessage() async {
-    if (controller.text.isEmpty || roomId == null) return;
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
-    await ChatService.sendMessage(roomId!, controller.text);
+  Future<void> sendMessage() async {
+    if (controller.text.trim().isEmpty || roomId == null) return;
+
+    final text = controller.text;
     controller.clear();
 
+    await ChatService.sendMessage(roomId!, text);
     final msgs = await ChatService.getMessages(roomId!);
 
     if (!mounted) return;
-
     setState(() {
       messages = msgs;
     });
+    _scrollToBottom();
   }
 
   @override
   void dispose() {
-    isPolling = false; // stop polling
+    isPolling = false;
     controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -85,28 +101,45 @@ class _ChatPageState extends State<ChatPage> {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
-        crossAxisAlignment:
-            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Container(
-            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
-            padding: const EdgeInsets.all(12),
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 20),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: isMe ? Colors.blue.shade800 : Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(12),
+              color: isMe ? const Color(0xFF1E56A0) : Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: Radius.circular(isMe ? 16 : 0),
+                bottomRight: Radius.circular(isMe ? 0 : 16),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                )
+              ],
             ),
             child: Text(
               msg['pesan'],
               style: TextStyle(
-                color: isMe ? Colors.white : Colors.black,
+                color: isMe ? Colors.white : const Color(0xFF1B3D5F),
+                fontSize: 14,
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: EdgeInsets.only(
+              left: isMe ? 0 : 25,
+              right: isMe ? 25 : 0,
+              bottom: 8,
+            ),
             child: Text(
               msg['waktu_kirim'] ?? '',
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
+              style: const TextStyle(fontSize: 9, color: Colors.grey),
             ),
           )
         ],
@@ -117,120 +150,87 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade200,
+      backgroundColor: const Color(0xFFF5F7F9), // Warna background konsisten
       body: Column(
         children: [
-          // HEADER
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.only(top: 60, bottom: 40),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade800,
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(40),
-              ),
-            ),
-            child: Column(
+          const TopNavbar(), // Navbar atas konsisten
+
+          // Sub-Header dengan tombol kembali
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
               children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 350,
-                      height: 70,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    Positioned(
-                      top: -20,
-                      child: Image.asset(
-                        "assets/images/logo_tarhilala.png",
-                        height: 130,
-                      ),
-                    ),
-                  ],
+                    child: const Icon(Icons.arrow_back_ios_new, size: 18, color: Color(0xFF1E56A0)),
+                  ),
+                ),
+                const SizedBox(width: 15),
+                const Text(
+                  "Bantuan Admin",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1B3D5F)),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 25),
-
-          // TITLE
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-              },
-              child: Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.arrow_back),
-                    SizedBox(width: 10),
-                    Text(
-                      "Chat Admin",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    )
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // CHAT LIST
+          // Area Chat
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.only(top: 10),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                return chatBubble(messages[index]);
-              },
-            ),
+            child: messages.isEmpty 
+            ? const Center(child: Text("Belum ada pesan. Silakan hubungi admin."))
+            : ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.only(top: 10),
+                itemCount: messages.length,
+                itemBuilder: (context, index) => chatBubble(messages[index]),
+              ),
           ),
 
-          // INPUT
+          // Input Bar Modern
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))
+              ]
+            ),
             child: Row(
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: const Color(0xFFF5F7F9),
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: TextField(
                       controller: controller,
                       decoration: const InputDecoration(
-                        hintText: "Ketik pesan...",
+                        hintText: "Tulis pesan ke admin...",
+                        hintStyle: TextStyle(fontSize: 14, color: Colors.grey),
                         border: InputBorder.none,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: Colors.blue.shade800,
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white),
-                    onPressed: sendMessage,
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: sendMessage,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1E56A0),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
                   ),
                 )
               ],

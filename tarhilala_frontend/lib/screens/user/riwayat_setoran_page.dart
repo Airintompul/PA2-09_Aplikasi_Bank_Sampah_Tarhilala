@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:intl/intl.dart';
 import '../../services/auth_service.dart';
-import 'widgets/top_navbar.dart'; // Import widget TopNavbar Anda
+import 'widgets/top_navbar.dart';
 import 'jual_sampah_page.dart';
 
 class RiwayatSetoranPage extends StatefulWidget {
@@ -13,305 +14,215 @@ class RiwayatSetoranPage extends StatefulWidget {
 }
 
 class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
-  List _listRiwayat = [];
+  List _listRiwayatSetoran = [];
+  List _listRiwayatPenarikan = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchData();
+    _fetchAllData();
   }
 
-  Future<void> _fetchData() async {
+  Future<void> _fetchAllData() async {
+    setState(() => _isLoading = true);
     try {
       int? userId = await AuthService.getUserId();
       String? token = await AuthService.getToken();
 
-      final response = await http.get(
+      // 1. Ambil Riwayat Setoran (Port 8000)
+      final resSetoran = await http.get(
         Uri.parse("${AuthService.baseUrl}/nasabah/setoran/$userId"),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      ).timeout(const Duration(seconds: 10));
+        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+      );
 
-      if (response.statusCode == 200) {
+      // 2. Ambil Riwayat Penarikan (Port 8000 -> Proxy ke 8001)
+      final resPenarikan = await http.get(
+        Uri.parse("${AuthService.baseUrl}/nasabah/riwayat-penarikan"),
+        headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+      );
+
+      if (mounted) {
         setState(() {
-          _listRiwayat = jsonDecode(response.body);
+          _listRiwayatSetoran = jsonDecode(resSetoran.body);
+          _listRiwayatPenarikan = jsonDecode(resPenarikan.body)['data'] ?? [];
           _isLoading = false;
         });
-      } else {
-        throw "Gagal memuat data";
       }
     } catch (e) {
-      debugPrint("Error Fetching History: $e");
+      debugPrint("Error Fetching Data: $e");
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // --- LOGIC: MENAMPILKAN DETAIL SETORAN ---
-  void _showDetail(Map data) {
-    showModalBottomSheet(
+  // --- LOGIC: MENAMPILKAN BUKTI TRANSFER DARI ADMIN ---
+  void _showBuktiTransfer(String? path) {
+    if (path == null) return;
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildDetailSheet(data),
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("Bukti Transfer Admin", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Image.network(
+            "http://10.0.2.2:8001/$path", // Ambil dari Port Finance
+            loadingBuilder: (context, child, progress) => progress == null ? child : const CircularProgressIndicator(),
+            errorBuilder: (c, e, s) => const Text("Gambar tidak tersedia"),
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("Tutup"))],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7F9),
-      body: Column(
-        children: [
-          /// 1. TOP NAVBAR (Sesuai Dashboard & Reward)
-          const TopNavbar(),
-
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _fetchData,
-              color: const Color(0xFF3B71CA),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-
-                    /// 2. CARD AJAKAN JUAL (Banner Konsisten)
-                    _buildSellBanner(),
-
-                    const SizedBox(height: 30),
-
-                    const Text(
-                      "Permintaan Penjemputan",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1B3D5F),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-
-                    /// 3. LIST RIWAYAT
-                    _isLoading
-                        ? const Center(
-                            child: Padding(
-                              padding: EdgeInsets.only(top: 50),
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
-                        : _listRiwayat.isEmpty
-                            ? _buildEmptyState()
-                            : ListView.builder(
-                                shrinkWrap: true,
-                                padding: EdgeInsets.zero,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: _listRiwayat.length,
-                                itemBuilder: (context, index) {
-                                  return _buildRiwayatCard(_listRiwayat[index]);
-                                },
-                              ),
-                    const SizedBox(height: 30),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSellBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF3B71CA), Color(0xFF54B4D3)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF3B71CA).withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Punya sampah menumpuk?",
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const Text(
-            "Jual sekarang dan dapatkan saldo tambahan!",
-            style: TextStyle(color: Colors.white70, fontSize: 11),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JualSampahPage())),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF3B71CA),
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text("Jual Sekarang", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRiwayatCard(Map data) {
-    String status = data['status'] ?? 'menunggu';
-    return GestureDetector(
-      onTap: () => _showDetail(data),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4))],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(15),
-          child: Row(
-            children: [
-              Container(
-                width: 50, height: 50,
-                decoration: BoxDecoration(
-                  color: _getStatusColor(status).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.inventory_2_outlined, color: _getStatusColor(status)),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Request #${data['id']}",
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1B3D5F)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "Estimasi: ${data['estimasi_berat']} Kg • ${data['metode_pembayaran'].toString().toUpperCase()}",
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              _statusBadge(status),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _statusBadge(String status) {
-    Color color = _getStatusColor(status);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-      child: Text(
-        status.toUpperCase().replaceAll('_', ' '),
-        style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.only(top: 80),
-        child: Column(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7F9),
+        body: Column(
           children: [
-            Icon(Icons.history_toggle_off, size: 60, color: Colors.grey),
-            SizedBox(height: 10),
-            Text("Belum ada riwayat setoran", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            const TopNavbar(),
+            
+            // BANNER PROMO
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: _buildSellBanner(),
+            ),
+
+            // TAB NAVIGATION
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: TabBar(
+                indicatorColor: const Color(0xFF3B71CA),
+                labelColor: const Color(0xFF3B71CA),
+                unselectedLabelColor: Colors.grey,
+                indicatorWeight: 3,
+                tabs: const [
+                  Tab(text: "Setoran Sampah"),
+                  Tab(text: "Penarikan Saldo"),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            Expanded(
+              child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    children: [
+                      // TAB 1: LIST SETORAN
+                      _buildListSetoran(),
+                      // TAB 2: LIST PENARIKAN
+                      _buildListPenarikan(),
+                    ],
+                  ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDetailSheet(Map data) {
-    return Container(
-      padding: const EdgeInsets.all(25),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+  // --- TAB: SETORAN SAMPAH ---
+  Widget _buildListSetoran() {
+    if (_listRiwayatSetoran.isEmpty) return _buildEmptyState("Belum ada riwayat setoran");
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: _listRiwayatSetoran.length,
+      itemBuilder: (context, index) => _cardTransaction(
+        title: "Request #${_listRiwayatSetoran[index]['id']}",
+        sub: "Estimasi: ${_listRiwayatSetoran[index]['estimasi_berat']} Kg",
+        amount: "Rp ${_listRiwayatSetoran[index]['total_harga'] ?? '0'}",
+        status: _listRiwayatSetoran[index]['status'],
+        isIncoming: true,
+        onTap: () {} // Bisa tambah modal detail jika mau
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
-          const SizedBox(height: 25),
-          const Text("Detail Transaksi", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1B3D5F))),
-          const SizedBox(height: 20),
-          
-          _detailItem("Order ID", "#SET-${data['id']}"),
-          _detailItem("Status", data['status'].toString().toUpperCase(), color: _getStatusColor(data['status'])),
-          _detailItem("Waktu", data['tanggal_pengajuan'] ?? '-'),
-          const Divider(height: 30),
-          
-          _detailItem("Estimasi Berat", "${data['estimasi_berat']} Kg"),
-          _detailItem("Berat Final", "${data['berat_final'] ?? '0.0'} Kg"),
-          _detailItem("Total Harga", "Rp ${data['total_harga'] ?? '0'}", isBold: true, color: const Color(0xFF3B71CA)),
-          
-          const SizedBox(height: 20),
-          const Text("Catatan Nasabah:", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-          Text(data['catatan'] ?? "Tidak ada catatan tambahan.", style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          
-          const SizedBox(height: 30),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3B71CA),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                padding: const EdgeInsets.symmetric(vertical: 15),
-              ),
-              child: const Text("Tutup", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  // --- TAB: PENARIKAN SALDO ---
+  Widget _buildListPenarikan() {
+    if (_listRiwayatPenarikan.isEmpty) return _buildEmptyState("Belum ada riwayat penarikan");
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: _listRiwayatPenarikan.length,
+      itemBuilder: (context, index) {
+        var item = _listRiwayatPenarikan[index];
+        return _cardTransaction(
+          title: "Tarik via ${item['metode']}",
+          sub: "${item['nomor_tujuan']} - ${item['nama_penerima']}",
+          amount: "Rp ${NumberFormat('#,###').format(double.parse(item['jumlah'].toString()))}",
+          status: item['status'],
+          isIncoming: false,
+          hasProof: item['bukti_transfer'] != null,
+          onTap: () {
+            if (item['status'] == 'selesai') _showBuktiTransfer(item['bukti_transfer']);
+          }
+        );
+      },
+    );
+  }
+
+  Widget _cardTransaction({
+    required String title, 
+    required String sub, 
+    required String amount, 
+    required String status, 
+    required bool isIncoming,
+    bool hasProof = false,
+    required VoidCallback onTap,
+  }) {
+    Color statusColor = status == 'selesai' ? Colors.green : (status == 'ditolak' ? Colors.red : Colors.orange);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: isIncoming ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+              child: Icon(isIncoming ? Icons.add_chart : Icons.outbox, color: isIncoming ? Colors.green : Colors.red, size: 18),
             ),
-          ),
-          const SizedBox(height: 20),
-        ],
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(sub, style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  if (hasProof) const Text("• Lihat Bukti Transfer", style: TextStyle(fontSize: 9, color: Colors.blue, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(amount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 5),
+                Text(status.toUpperCase(), style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 9)),
+              ],
+            )
+          ],
+        ),
       ),
     );
   }
 
-  Widget _detailItem(String label, String value, {Color? color, bool isBold = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-          Text(value, style: TextStyle(fontWeight: isBold ? FontWeight.bold : FontWeight.bold, fontSize: 13, color: color ?? Colors.black87)),
-        ],
-      ),
-    );
-  }
+  Widget _buildEmptyState(String msg) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.history_toggle_off, size: 50, color: Colors.grey), const SizedBox(height: 10), Text(msg, style: const TextStyle(color: Colors.grey))]));
 
-  Color _getStatusColor(String status) {
-    if (status == 'selesai') return Colors.green;
-    if (status == 'menunggu') return Colors.orange;
-    if (status == 'dibatalkan') return Colors.red;
-    return const Color(0xFF3B71CA);
-  }
+  Widget _buildSellBanner() => Container(width: double.infinity, padding: const EdgeInsets.all(25), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF3B71CA), Color(0xFF54B4D3)]), borderRadius: BorderRadius.circular(24)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text("Punya sampah menumpuk?", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)), const Text("Jual sekarang dan dapatkan saldo tambahan!", style: TextStyle(color: Colors.white70, fontSize: 11)), const SizedBox(height: 20), ElevatedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const JualSampahPage())), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF3B71CA), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text("Jual Sekarang", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)))]));
 }

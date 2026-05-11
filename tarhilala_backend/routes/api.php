@@ -11,7 +11,7 @@ use App\Http\Controllers\Api\BeritaController;
 use App\Http\Controllers\Api\NasabahSetoranController;
 
 use App\Http\Controllers\Api\Nasabah\RedeemController;
-
+use App\Http\Controllers\Api\Nasabah\WithdrawalController;
 
 // --- IMPORT CONTROLLER ADMIN (VUE.JS) ---
 // Kita gunakan alias 'as' agar tidak bentrok jika ada nama class yang sama
@@ -65,8 +65,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/setoran/detail/{id}', [NasabahSetoranController::class, 'show']);
         Route::put('/setoran/cancel/{id}', [NasabahSetoranController::class, 'cancel']);
 
+        Route::get('/jadwal-nasabah', [LocationController::class, 'index']);
+
         Route::post('/redeem', [RedeemController::class, 'redeem']);
         Route::get('/riwayat-reward', [RedeemController::class, 'riwayat']);
+
+        Route::post('/tarik-saldo', [WithdrawalController::class, 'store']);
+        Route::get('/riwayat-penarikan', [WithdrawalController::class, 'history']);
 
         // Chat Nasabah
         Route::get('/chat/room', [ChatController::class, 'getRoom']);
@@ -135,5 +140,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/messages/{id}', [MessageController::class, 'show']);
         Route::post('/messages/{id}/send', [MessageController::class, 'store']);
         Route::patch('/messages/{id}/status', [MessageController::class, 'updateStatus']);
+    });
+
+    Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
+    Route::post('/penarikan-update/{id}', [App\Http\Controllers\Api\Nasabah\WithdrawalController::class, 'updateStatus']);
     });
 });
