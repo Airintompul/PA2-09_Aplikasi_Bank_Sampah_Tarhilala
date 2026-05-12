@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Setoran;
+use App\Models\Notifikasi;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 
@@ -63,16 +64,32 @@ class AdminController extends Controller
      */
     public function dashboard()
 {
+    // 1. Definisikan ID Admin yang sedang login
+    $adminId = \Auth::id();
+
     // Statistik Summary
     $nasabah = \App\Models\User::where('role', 'nasabah')->count();
     $petugas = \App\Models\User::where('role', 'petugas')->count();
     $pickup = \App\Models\Setoran::count();
 
-    // 1. DATA GRAFIK BAR: Tren Penjemputan (7 Hari Terakhir)
-    $chartData = \App\Models\Setoran::selectRaw('DATE(tanggal_pengajuan) as date, COUNT(*) as total')
-        ->groupBy('date')->orderBy('date', 'asc')->take(7)->get();
+    // 2. DATA NOTIFIKASI (Tambahkan ini agar Frontend tidak error)
+    $notifications = \App\Models\Notifikasi::where('user_id', $adminId)
+        ->orderBy('created_at', 'desc')
+        ->take(5)
+        ->get();
 
-    // 2. DATA GRAFIK PIE: Komposisi Sampah Terbanyak (Berdasarkan Berat)
+    $unreadCount = \App\Models\Notifikasi::where('user_id', $adminId)
+        ->where('is_read', false)
+        ->count();
+
+    // 3. DATA GRAFIK BAR: Tren Penjemputan (7 Hari Terakhir)
+    $chartData = \App\Models\Setoran::selectRaw('DATE(tanggal_pengajuan) as date, COUNT(*) as total')
+        ->groupBy('date')
+        ->orderBy('date', 'asc')
+        ->take(7)
+        ->get();
+
+    // 4. DATA GRAFIK PIE: Komposisi Sampah Terbanyak (Berdasarkan Berat)
     $komposisi = \DB::table('detail_setoran')
         ->join('jenis_sampah', 'detail_setoran.jenis_sampah_id', '=', 'jenis_sampah.id')
         ->select('jenis_sampah.nama', \DB::raw('SUM(detail_setoran.berat) as total_berat'))
@@ -86,9 +103,10 @@ class AdminController extends Controller
             'total_nasabah' => $nasabah,
             'total_petugas' => $petugas,
             'pickup_selesai' => $pickup,
+            'notifications' => $notifications, // Kirim ke frontend
+            'unread_count' => $unreadCount,    // Kirim ke frontend
             'chart_labels' => $chartData->pluck('date'),
             'chart_values' => $chartData->pluck('total'),
-            // Data untuk Pie Chart
             'pie_labels' => $komposisi->pluck('nama'),
             'pie_values' => $komposisi->pluck('total_berat'),
         ]
@@ -108,4 +126,34 @@ class AdminController extends Controller
             'message' => 'Logout berhasil, token telah dihapus'
         ]);
     }
+    public function getNotifications()
+{
+    $notifications = Notifikasi::where('user_id', Auth::id())
+        ->orderBy('created_at', 'desc')
+        ->take(10) // Ambil 10 terbaru saja
+        ->get();
+
+    $unreadCount = Notifikasi::where('user_id', Auth::id())
+        ->where('is_read', false)
+        ->count();
+
+    return response()->json([
+        'status' => 'success',
+        'data' => [
+            'notifications' => $notifications,
+            'unread_count' => $unreadCount
+        ]
+    ]);
+}
+
+public function markAsRead($id)
+{
+    $notification = Notifikasi::where('user_id', Auth::id())->findOrFail($id);
+    $notification->update(['is_read' => true]);
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Notifikasi ditandai sudah dibaca'
+    ]);
+}
 }

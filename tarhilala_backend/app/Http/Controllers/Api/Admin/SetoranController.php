@@ -128,7 +128,7 @@ class SetoranController extends Controller
             [
                 'nomor_invoice'   => 'INV-' . strtoupper(Str::random(8)),
                 'total_bayar'     => $finalAmount,
-                'file_invoice'    => $path,
+                'file_invoice'    => null,
                 'tanggal_invoice' => now()
             ]
         );

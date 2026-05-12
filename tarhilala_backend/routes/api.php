@@ -140,6 +140,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/messages/{id}', [MessageController::class, 'show']);
         Route::post('/messages/{id}/send', [MessageController::class, 'store']);
         Route::patch('/messages/{id}/status', [MessageController::class, 'updateStatus']);
+
+        Route::get('/notifications', [AdminController::class, 'getNotifications']);
+        Route::put('/notifications/{id}/read', [AdminController::class, 'markAsRead']);
     });
 
     Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
