@@ -3,16 +3,18 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart'; // Untuk nama jalan
+import 'package:geocoding/geocoding.dart'; 
 import 'package:http/http.dart' as http;
-import 'package:flutter_map/flutter_map.dart'; // Map Gratis
-import 'package:latlong2/latlong.dart'; // Koordinat
+import 'package:flutter_map/flutter_map.dart'; 
+import 'package:latlong2/latlong.dart'; 
 import '../../services/auth_service.dart';
 import '../../services/pickup_service.dart';
 import 'widgets/top_navbar.dart';
 
 class JualSampahPage extends StatefulWidget {
-  const JualSampahPage({super.key});
+  // 1. TAMBAHKAN PARAMETER INI
+  final bool showBackButton;
+  const JualSampahPage({super.key, this.showBackButton = false});
 
   @override
   State<JualSampahPage> createState() => _JualSampahPageState();
@@ -23,21 +25,17 @@ class _JualSampahPageState extends State<JualSampahPage> {
   bool _isSending = false;
   bool _isLoadingData = true;
 
-  // Controller Map
   final MapController _mapController = MapController();
   
-  // Data Lokasi
   Position? _currentPosition;
   String _currentAddress = "Mencari lokasi presisi...";
   LatLng _mapCenter = const LatLng(0, 0);
 
-  // Data Form
   String _selectedPayment = 'saldo';
   final _catatanController = TextEditingController();
   List _jenisSampahDinamis = [];
   List<Map<String, dynamic>> _selectedItems = [];
 
-  // Data AI (Simulasi)
   String _aiLabel = "Belum Terdeteksi";
   double _aiConfidence = 0.0;
 
@@ -50,20 +48,22 @@ class _JualSampahPageState extends State<JualSampahPage> {
   Future<void> _initData() async {
     try {
       await _determinePosition();
+      if (!mounted) return;
+
       final data = await PickupService.getWasteTypes();
+      if (!mounted) return;
+
       setState(() {
         _jenisSampahDinamis = data;
         _isLoadingData = false;
       });
     } catch (e) {
+      if (!mounted) return;
       _showErrorDialog("Gagal memuat data: $e");
-      if (mounted) setState(() => _isLoadingData = false);
+      setState(() => _isLoadingData = false);
     }
   }
 
-  // =====================================================
-  // LOGIC GPS AKURASI TINGGI & REVERSE GEOCODING
-  // =====================================================
   Future<void> _determinePosition() async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -72,21 +72,21 @@ class _JualSampahPageState extends State<JualSampahPage> {
         if (permission == LocationPermission.denied) throw "Izin lokasi ditolak.";
       }
 
-      // Mengambil lokasi dengan akurasi navigasi (Best Accuracy)
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.bestForNavigation,
       );
+      if (!mounted) return;
 
       setState(() {
         _currentPosition = position;
         _mapCenter = LatLng(position.latitude, position.longitude);
       });
 
-      // Gerakkan kamera peta ke lokasi baru
       _mapController.move(_mapCenter, 16.0);
 
-      // Ambil Nama Jalan
       List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      if (!mounted) return;
+
       if (placemarks.isNotEmpty) {
         Placemark p = placemarks[0];
         setState(() {
@@ -101,11 +101,15 @@ class _JualSampahPageState extends State<JualSampahPage> {
   Future<void> _pickImage() async {
     final file = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 40);
     if (file != null) {
+      if (!mounted) return;
       setState(() {
         _image = File(file.path);
         _aiLabel = "Menganalisa...";
       });
+      
       await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
       setState(() {
         _aiLabel = "Plastik PET / Botol";
         _aiConfidence = 0.95;
@@ -160,6 +164,8 @@ class _JualSampahPageState extends State<JualSampahPage> {
       var streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       var response = await http.Response.fromStream(streamedResponse);
 
+      if (!mounted) return;
+
       if (response.statusCode == 201) {
         _showSuccessDialog();
       } else {
@@ -167,6 +173,7 @@ class _JualSampahPageState extends State<JualSampahPage> {
         throw errorBody['message'] ?? "Gagal memproses di server.";
       }
     } catch (e) {
+      if (!mounted) return;
       _showErrorDialog(e.toString());
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -180,15 +187,56 @@ class _JualSampahPageState extends State<JualSampahPage> {
       body: Column(
         children: [
           const TopNavbar(),
+
+          /// --- HEADER DINAMIS ---
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+            child: Row(
+              children: [
+                // 2. LOGIKA TOMBOL KEMBALI
+                if (widget.showBackButton) ...[
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 5,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
+                      ),
+                      child: const Icon(Icons.arrow_back_ios_new, 
+                          size: 18, color: Colors.black87),
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                ],
+                const Text(
+                  "Jual Sampah",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           Expanded(
             child: _isLoadingData
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF3B71CA)))
                 : SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 10),
                         _buildSectionHeader("Bukti Foto"),
                         _buildPhotoBox(),
                         if(_image != null) _buildAIResult(),
@@ -223,6 +271,7 @@ class _JualSampahPageState extends State<JualSampahPage> {
     );
   }
 
+  // (Sisa widget helper Anda tetap sama)
   Widget _buildSectionHeader(String title) {
     return Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1B3D5F)));
   }
@@ -250,9 +299,6 @@ class _JualSampahPageState extends State<JualSampahPage> {
     );
   }
 
-  // =====================================================
-  // UI: INTERACTIVE OPENSTREETMAP (GRATIS)
-  // =====================================================
   Widget _buildMapArea() {
     return Column(
       children: [
@@ -356,10 +402,12 @@ class _JualSampahPageState extends State<JualSampahPage> {
   }
 
   void _showErrorDialog(String msg) {
+    if (!mounted) return;
     showDialog(context: context, builder: (c) => AlertDialog(title: const Text("Error"), content: Text(msg), actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text("Tutup"))]));
   }
 
   void _showSuccessDialog() {
+    if (!mounted) return;
     showDialog(context: context, barrierDismissible: false, builder: (c) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       content: const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.check_circle, color: Colors.green, size: 60), SizedBox(height: 15), Text("Berhasil!", style: TextStyle(fontWeight: FontWeight.bold)), Text("Request Anda segera diproses Admin.")]),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../user/widgets/top_navbar.dart';
-import '../user/widgets/bottom_navbar.dart';
+import 'jual_sampah_page.dart'; 
 
 class DetailSampahPage extends StatefulWidget {
   final Map data;
@@ -11,12 +11,13 @@ class DetailSampahPage extends StatefulWidget {
 }
 
 class _DetailSampahPageState extends State<DetailSampahPage> {
-  int currentIndex = 0;
+  // Logic Bottom Navbar dihapus dari sini
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // Background halus
+      backgroundColor: const Color(0xFFF8F9FA),
+      // bottomNavigationBar dihapus agar tampilan lebih bersih
       body: Column(
         children: [
           const TopNavbar(),
@@ -29,7 +30,7 @@ class _DetailSampahPageState extends State<DetailSampahPage> {
                 children: [
                   const SizedBox(height: 25),
                   
-                  // Back Button & Title
+                  // Tombol Kembali & Judul
                   Row(
                     children: [
                       GestureDetector(
@@ -43,6 +44,7 @@ class _DetailSampahPageState extends State<DetailSampahPage> {
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.05),
                                 blurRadius: 5,
+                                offset: const Offset(0, 2),
                               )
                             ],
                           ),
@@ -52,14 +54,14 @@ class _DetailSampahPageState extends State<DetailSampahPage> {
                       const SizedBox(width: 15),
                       const Text(
                         "Detail Sampah",
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A1D1E)),
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A1D1E)),
                       ),
                     ],
                   ),
                   
                   const SizedBox(height: 25),
 
-                  // Image Container (Modern Card style)
+                  // Container Gambar
                   Container(
                     height: 250,
                     width: double.infinity,
@@ -76,7 +78,7 @@ class _DetailSampahPageState extends State<DetailSampahPage> {
                       ],
                     ),
                     child: Hero(
-                      tag: 'sampah_${widget.data['id']}', // Animasi jika dari list menggunakan Hero
+                      tag: 'sampah_${widget.data['id']}',
                       child: Image.network(
                         widget.data['gambar'], 
                         fit: BoxFit.contain,
@@ -87,7 +89,7 @@ class _DetailSampahPageState extends State<DetailSampahPage> {
                   
                   const SizedBox(height: 30),
 
-                  // Info Section
+                  // Info Section (Nama & Harga)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,7 +100,7 @@ class _DetailSampahPageState extends State<DetailSampahPage> {
                           children: [
                             Text(
                               widget.data['nama'],
-                              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF1A1D1E)),
+                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1A1D1E)),
                             ),
                             const SizedBox(height: 8),
                             Container(
@@ -122,17 +124,17 @@ class _DetailSampahPageState extends State<DetailSampahPage> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          const Text("Harga Estimasi", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          const Text("Harga Estimasi", style: TextStyle(color: Colors.grey, fontSize: 11)),
                           const SizedBox(height: 4),
                           Text(
                             "Rp ${widget.data['harga_per_kg']}",
                             style: const TextStyle(
-                              fontSize: 24,
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF1E56A0),
                             ),
                           ),
-                          const Text("/Kg", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          const Text("/Kg", style: TextStyle(color: Colors.grey, fontSize: 11)),
                         ],
                       ),
                     ],
@@ -143,7 +145,7 @@ class _DetailSampahPageState extends State<DetailSampahPage> {
                     child: Divider(color: Colors.black12, thickness: 1),
                   ),
 
-                  // Description
+                  // Deskripsi
                   const Text(
                     "Tentang Sampah Ini",
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A1D1E)),
@@ -152,29 +154,32 @@ class _DetailSampahPageState extends State<DetailSampahPage> {
                   Text(
                     widget.data['deskripsi'] ?? "Informasi mengenai sampah ini belum tersedia secara detail. Pastikan sampah dalam kondisi bersih sebelum disetorkan.",
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
                       color: Colors.grey.shade600,
                       height: 1.6,
-                      letterSpacing: 0.3,
                     ),
                   ),
                   
                   const SizedBox(height: 40),
 
-                  // Action Button
+                  // --- ACTION BUTTON: JUAL SEKARANG ---
                   SizedBox(
                     width: double.infinity,
                     height: 60,
                     child: ElevatedButton(
                       onPressed: () {
-                        // Aksi Jual
+                        // Navigasi ke halaman Jual Sampah
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const JualSampahPage(showBackButton: true,)),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1E56A0),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                        elevation: 8,
-                        shadowColor: const Color(0xFF1E56A0).withOpacity(0.4),
+                        elevation: 5,
+                        shadowColor: const Color(0xFF1E56A0).withOpacity(0.3),
                       ),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -195,16 +200,6 @@ class _DetailSampahPageState extends State<DetailSampahPage> {
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: BottomNavbar(
-        currentIndex: currentIndex,
-        onTap: (index) {
-          if (index == 0) {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-          } else {
-            setState(() => currentIndex = index);
-          }
-        },
       ),
     );
   }

@@ -74,7 +74,9 @@ class InternalFinanceController extends Controller {
         }
 
         return DB::transaction(function() use ($request) {
-            $wallet = Wallet::where('user_id', $request->user_id)->where('account_type', 'poin')->first();
+            $wallet = Wallet::where('user_id', $request->user_id)
+                            ->where('account_type', 'poin')
+                            ->first();
 
             if (!$wallet || $wallet->current_balance < $request->points) {
                 return response()->json(['message' => 'Poin Anda tidak cukup'], 400);
@@ -82,11 +84,14 @@ class InternalFinanceController extends Controller {
 
             $wallet->decrement('current_balance', $request->points);
 
+            // PERBAIKAN DI SINI: Masukkan reference_table dan reference_data_id
             WalletTransaction::create([
-                'account_id'  => $wallet->id,
-                'amount'      => $request->points,
-                'direction'   => 'debit',
-                'description' => $request->description ?? 'Penukaran reward'
+                'account_id'        => $wallet->id,
+                'amount'            => $request->points,
+                'direction'         => 'debit',
+                'reference_table'   => $request->reference_table, // Diambil dari input
+                'reference_data_id' => $request->reference_data_id, // Diambil dari input
+                'description'       => $request->description ?? 'Penukaran reward'
             ]);
 
             return response()->json(['status' => 'success', 'message' => 'Poin dipotong']);

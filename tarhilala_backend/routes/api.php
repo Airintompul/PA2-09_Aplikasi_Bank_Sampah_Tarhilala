@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\BeritaController;
 use App\Http\Controllers\Api\NasabahSetoranController;
+use App\Http\Controllers\Api\NotificationController;
 
 use App\Http\Controllers\Api\Nasabah\RedeemController;
 use App\Http\Controllers\Api\Nasabah\WithdrawalController;
@@ -63,7 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/setoran/{nasabah_id}', [NasabahSetoranController::class, 'index']);
         Route::post('/setoran/store', [NasabahSetoranController::class, 'store']);
         Route::get('/setoran/detail/{id}', [NasabahSetoranController::class, 'show']);
-        Route::put('/setoran/cancel/{id}', [NasabahSetoranController::class, 'cancel']);
+        Route::post('/setoran/{id}/cancel', [NasabahSetoranController::class, 'cancel']);
 
         Route::get('/jadwal-nasabah', [LocationController::class, 'index']);
 
@@ -78,8 +79,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/chat/messages/{id}', [ChatController::class, 'getMessages']);
         Route::post('/chat/send', [ChatController::class, 'sendMessage']);
         Route::middleware('auth:sanctum')->post('/nasabah/redeem', [RedeemController::class, 'redeem']);
+
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     });
 
+    // Route untuk Petugas/Driver
+    Route::middleware('auth:sanctum')->prefix('petugas')->group(function () {
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    });
 
     // --- AREA ADMIN (VUE.JS) ---
     // Sesuai dengan baseURL di Vue: /api/admin

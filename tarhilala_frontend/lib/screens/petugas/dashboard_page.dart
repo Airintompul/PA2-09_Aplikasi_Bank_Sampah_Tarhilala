@@ -7,7 +7,7 @@ import 'petugas_rute_page.dart';
 import 'petugas_setoran_page.dart';
 import 'petugas_transaksi_page.dart';
 import 'petugas_profile_page.dart'; 
-import '../petugas/widgets/bottom_navbar.dart'; // Pastikan path ini benar
+import '../petugas/widgets/bottom_navbar.dart'; 
 
 class PetugasDashboardPage extends StatefulWidget {
   const PetugasDashboardPage({super.key});
@@ -91,17 +91,26 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
               children: [
+                // 1. HEADER & PROFILE (DIPERBAIKI)
                 _buildHeaderSection(),
-                const SizedBox(height: 75),
+
+                // 2. GRID STATISTIK
                 _buildStatsGrid(),
+
                 const SizedBox(height: 25),
+
+                // 3. SETORAN BERIKUTNYA
                 _buildSectionLabel("Setoran Berikutnya"),
                 setoranBerikutnya != null 
                   ? _buildNextDepositCard()
                   : _buildEmptyState("Tidak ada tugas tersisa hari ini"),
+
                 const SizedBox(height: 25),
+
+                // 4. TIMELINE AKTIVITAS
                 _buildSectionLabel("Aktivitas Penjemputan"),
                 _buildRouteTimeline(),
+
                 const SizedBox(height: 100), 
               ],
             ),
@@ -114,10 +123,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
           if (index == 1) {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PetugasTransaksiPage()));
           } else if (index == 4) { 
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => PetugasRutePage(ruteData: listRute)),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (context) => PetugasRutePage(ruteData: listRute)));
           } else if (index == 2) {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const PetugasSetoranPage()));
           } else if (index == 3) {
@@ -131,15 +137,17 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
   // --- WIDGET HELPER ---
 
   Widget _buildHeaderSection() {
-    return Stack(
-      clipBehavior: Clip.none,
+    return Column(
       children: [
-        const TopNavbar(), 
-        // Bagian Logout sudah dihapus dari sini
-        Positioned(
-          top: 100, 
-          left: 20,
-          right: 20,
+        // TOP NAVBAR
+        const TopNavbar(),
+
+        // JARAK AGAR TERPISAH
+        const SizedBox(height: 18),
+
+        // CARD DRIVER
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: _buildProfileCard(),
         ),
       ],
@@ -148,27 +156,45 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
 
   Widget _buildProfileCard() {
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, 4))],
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1), 
+            blurRadius: 15, 
+            offset: const Offset(0, 8)
+          )
+        ],
       ),
       child: Row(
         children: [
           Container(
-            width: 55, height: 55,
-            decoration: BoxDecoration(color: const Color(0xFF91ACCF), borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.person, color: Colors.white, size: 30),
+            width: 60, height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE3F2FD), 
+              borderRadius: BorderRadius.circular(12)
+            ),
+            child: const Icon(Icons.person, color: Color(0xFF154C94), size: 35),
           ),
           const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(nama, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-              const Text("Driver Lapangan - Aktif", style: TextStyle(color: Colors.grey, fontSize: 13)),
-            ],
-          )
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nama, 
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1B3D5F))
+                ),
+                const Text(
+                  "Driver Lapangan • Aktif", 
+                  style: TextStyle(color: Colors.grey, fontSize: 13)
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.verified, color: Colors.blue, size: 20),
         ],
       ),
     );
@@ -183,7 +209,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
         crossAxisCount: 2,
         crossAxisSpacing: 15,
         mainAxisSpacing: 15,
-        childAspectRatio: 1.4,
+        childAspectRatio: 1.3,
         children: [
           _buildStatCard("Tugas hari ini", "${stats['total_tugas']}", "${stats['selesai']} selesai ${stats['sisa']} sisa"),
           _buildStatCard("Total sampah", "${stats['total_kg'].toStringAsFixed(1)}", "Total hari ini", unit: "Kg"),
@@ -197,16 +223,20 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
   Widget _buildStatCard(String title, String value, String sub, {String? unit, String? prefix}) {
     return Container(
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: Colors.white, 
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5)],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(title, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-          const SizedBox(height: 4),
+          Text(title, style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
           RichText(
             text: TextSpan(
-              style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: Color(0xFF1B3D5F), fontSize: 20, fontWeight: FontWeight.bold),
               children: [
                 if (prefix != null) TextSpan(text: prefix, style: const TextStyle(fontSize: 14)),
                 TextSpan(text: value),
@@ -214,6 +244,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
               ],
             ),
           ),
+          const SizedBox(height: 4),
           Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 10)),
         ],
       ),
@@ -228,19 +259,22 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white, 
-            borderRadius: BorderRadius.circular(12), 
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+            borderRadius: BorderRadius.circular(15), 
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
           ),
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50, 
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(15))
+                ),
                 child: Row(
                   children: [
                     const Icon(Icons.location_on, color: Color(0xFF154C94), size: 20),
                     const SizedBox(width: 10),
-                    Text("ID: #SET-${setoranBerikutnya!.id}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Text("TUGAS AKTIF: #SET-${setoranBerikutnya!.id}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1B3D5F))),
                   ],
                 ),
               ),
@@ -260,7 +294,10 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: Colors.white, 
+          borderRadius: BorderRadius.circular(15),
+        ),
         child: Column(
           children: displayList.asMap().entries.map((entry) {
             var item = entry.value;
@@ -279,9 +316,11 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
   }
 
   Widget _buildEmptyState(String msg) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Center(child: Text(msg, style: const TextStyle(color: Colors.grey))),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text(msg, style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+      ),
     );
   }
 
@@ -314,7 +353,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start, 
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1B3D5F))),
               Text(sub, style: const TextStyle(color: Colors.grey, fontSize: 11)),
             ],
           ),
@@ -322,7 +361,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-          child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+          child: Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -330,7 +369,7 @@ class _PetugasDashboardPageState extends State<PetugasDashboardPage> {
 
   Widget _buildSectionLabel(String label) {
     return Padding(
-      padding: const EdgeInsets.only(left: 20, bottom: 10),
+      padding: const EdgeInsets.only(left: 20, bottom: 12),
       child: Align(alignment: Alignment.centerLeft, child: Text(label, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13))),
     );
   }

@@ -46,7 +46,9 @@ class RedeemController extends Controller
                     'user_id'     => $user->id,
                     'points'      => $totalPoinDibutuhkan,
                     'reward_name' => $reward->nama_reward,
-                    'description' => "Tukar {$request->jumlah}x {$reward->nama_reward}"
+                    'description' => "Tukar {$request->jumlah}x {$reward->nama_reward}",
+                    'reference_table'   => 'reward',
+                    'reference_data_id' => $reward->id
                 ]);
 
                 // Jika Finance Service menolak (Misal: Poin tidak cukup)

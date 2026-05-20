@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:tarhilala_frontend/screens/user/jual_sampah_page.dart';
 import '../../services/product_service.dart';
 import '../../services/news_service.dart';
 import 'widgets/bottom_navbar.dart'; 
@@ -19,7 +20,7 @@ import '../user/penarikan_saldo_page.dart';
 import '../user/jadwal_penjemputan_page.dart';
 import '../user/chat_page.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:intl/intl.dart'; // Untuk format Rupiah
+import 'package:intl/intl.dart';
 
 class UserDashboardPage extends StatefulWidget {
   const UserDashboardPage({super.key});
@@ -165,8 +166,8 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   Widget _getPage() {
     switch (currentIndex) {
       case 0: return _dashboardContent();
-      case 1: return const TransaksiPage();
-      case 2: return const RiwayatSetoranPage();
+      case 1: return const TransaksiPage(showBackButton: false,);
+      case 2: return const JualSampahPage(showBackButton: false);
       case 3: return const RewardPage(showBackButton: false,);
       case 4: return const ProfilePage();
       default: return _dashboardContent();
@@ -355,7 +356,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatPage()));
           }),
           _menuItem(Icons.receipt_long, "Transaksi", const Color(0xFFBA68C8), () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const TransaksiPage()));
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const TransaksiPage(showBackButton: true,)));
           }),
           _menuItem(Icons.radio_button_checked, "Poin", const Color(0xFF7986CB), () {
               Navigator.push(
