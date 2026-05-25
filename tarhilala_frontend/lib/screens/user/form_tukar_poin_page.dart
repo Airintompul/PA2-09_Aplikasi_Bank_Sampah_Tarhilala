@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart'; // Wajib: pub add geolocator
+import 'package:geocoding/geocoding.dart'; // Wajib: pub add geocoding
 import 'package:tarhilala_frontend/screens/user/widgets/top_navbar.dart';
 import '../user/widgets/bottom_navbar.dart';
 import '../../services/redeem_service.dart';
@@ -20,6 +22,13 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
   String userPoin = "0";
   bool loadingPoin = true;
   bool isSubmitting = false;
+  bool isFetchingLocation = false;
+
+  // Controller Input Baru
+  final TextEditingController _alamatController = TextEditingController();
+  final TextEditingController _catatanController = TextEditingController();
+  String _lat = "";
+  String _lng = "";
 
   @override
   void initState() {
@@ -54,7 +63,78 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
     }
   }
 
-  // --- LOGIKA URL GAMBAR ---
+  // --- AMBIL LOKASI GPS OTOMATIS ---
+  Future<void> _determinePosition() async {
+    setState(() => isFetchingLocation = true);
+    
+    try {
+      // 1. Cek Izin & Layanan (Wajib)
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw "GPS HP mati. Mohon aktifkan GPS.";
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) throw "Izin lokasi ditolak.";
+      }
+
+      // 2. Ambil Lokasi Terakhir (Sangat Cepat/Instan sebagai cadangan)
+      Position? lastPosition = await Geolocator.getLastKnownPosition();
+      Position currentPos;
+
+      if (lastPosition != null) {
+        currentPos = lastPosition;
+      } else {
+        // 3. Jika tidak ada lokasi terakhir, ambil posisi sekarang (Low Accuracy agar cepat)
+        currentPos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.low, // Paling cepat dapat sinyal
+          timeLimit: const Duration(seconds: 5), // Batas waktu 5 detik
+        );
+      }
+
+      setState(() {
+        _lat = currentPos.latitude.toString();
+        _lng = currentPos.longitude.toString();
+      });
+
+      // 4. Ubah Koordinat jadi Nama Jalan (Geocoding)
+      // Bagian ini sering gagal di emulator, kita beri try-catch khusus
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          currentPos.latitude, currentPos.longitude
+        ).timeout(const Duration(seconds: 5));
+
+        if (placemarks.isNotEmpty) {
+          Placemark p = placemarks[0];
+          setState(() {
+            _alamatController.text = "${p.street}, ${p.subLocality}, ${p.locality}";
+          });
+        }
+      } catch (e) {
+        // Jika geocoding gagal, minimal koordinat lat/lng sudah dapat
+        _alamatController.text = "Lokasi ditemukan, tapi gagal mengambil nama jalan. Mohon ketik alamat manual.";
+        debugPrint("Geocoding Error: $e");
+      }
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Info: $e"), backgroundColor: Colors.orange)
+      );
+    } finally {
+      setState(() => isFetchingLocation = false);
+    }
+  }
+
+  // Fungsi tambahan jika GPS macet
+  Future<Position> _getLastKnownPosition() async {
+    Position? position = await Geolocator.getLastKnownPosition();
+    if (position != null) return position;
+    // Jika benar-benar tidak ada, lempar error
+    throw "Gagal mendapatkan sinyal GPS. Coba di luar ruangan.";
+  }
+
   String getCleanImageUrl(String? url) {
     if (url == null) return "";
     String fixedUrl = url.replaceAll("127.0.0.1", "10.0.2.2");
@@ -80,18 +160,11 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 15),
-
-                  /// 2. HEADER
                   _buildHeader(context),
-
                   const SizedBox(height: 20),
-
-                  /// 3. KARTU POIN BIRU DINAMIS
                   _buildBluePointsCard(),
-
                   const SizedBox(height: 25),
 
-                  /// 4. FORM KARTU
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -104,33 +177,60 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // INFO ITEM
                         _buildItemInfo(),
+                        const Divider(height: 40, thickness: 1),
 
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 20),
-                          child: Divider(color: Color(0xFFF0F4F8), thickness: 2),
-                        ),
-
-                        // JUMLAH
                         const Text("Jumlah Penukaran", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1B3D5F))),
                         const SizedBox(height: 12),
                         _buildQuantitySelector(stok),
 
                         const SizedBox(height: 25),
 
-                        // RINGKASAN
-                        _summaryRow("Total Poin dibutuhkan", "$totalPoinDibutuhkan Poin", isPrimary: true),
-                        _summaryRow("Poin Anda Saat Ini", "$userPoin Poin"),
-
-                        const SizedBox(height: 20),
-
-                        // CHECKBOX
-                        _buildAgreementCheckbox(),
+                        // --- SECTION LOKASI ---
+                        const Text("Lokasi Pengiriman", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1B3D5F))),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: isFetchingLocation ? null : _determinePosition,
+                          icon: isFetchingLocation 
+                            ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.my_location, size: 18),
+                          label: Text(isFetchingLocation ? "Mencari Lokasi..." : "Gunakan Lokasi Saat Ini (GPS)"),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF3B71CA),
+                            side: const BorderSide(color: Color(0xFF3B71CA)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _alamatController,
+                          maxLines: 2,
+                          decoration: InputDecoration(
+                            hintText: "Alamat Lengkap (No Rumah/Blok)",
+                            hintStyle: const TextStyle(fontSize: 13),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _catatanController,
+                          decoration: InputDecoration(
+                            hintText: "Catatan (Contoh: Titip satpam)",
+                            hintStyle: const TextStyle(fontSize: 13),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                          ),
+                        ),
 
                         const SizedBox(height: 25),
-
-                        // TOMBOL KONFIRMASI
+                        _summaryRow("Total Poin dibutuhkan", "$totalPoinDibutuhkan Poin", isPrimary: true),
+                        _summaryRow("Poin Anda Saat Ini", "$userPoin Poin"),
+                        const SizedBox(height: 20),
+                        _buildAgreementCheckbox(),
+                        const SizedBox(height: 25),
                         _buildSubmitButton(poinCukup, stok),
                       ],
                     ),
@@ -151,6 +251,7 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
     );
   }
 
+  // --- WIDGET HELPERS ---
   Widget _buildHeader(BuildContext context) {
     return Row(
       children: [
@@ -158,12 +259,12 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
           onTap: () => Navigator.pop(context),
           child: Container(
             padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]),
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)]),
             child: const Icon(Icons.arrow_back_ios_new, size: 18, color: Color(0xFF1B3D5F)),
           ),
         ),
         const SizedBox(width: 15),
-        const Text("Penukaran Poin", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1B3D5F))),
+        const Text("Konfirmasi Redeem", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1B3D5F))),
       ],
     );
   }
@@ -173,7 +274,7 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF3B71CA), Color(0xFF54B4D3)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: const LinearGradient(colors: [Color(0xFF3B71CA), Color(0xFF54B4D3)]),
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
@@ -182,20 +283,14 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Poin Anda Saat Ini", style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const Text("Saldo Poin", style: TextStyle(color: Colors.white70, fontSize: 13)),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.stars, color: Colors.amber, size: 24),
-                  const SizedBox(width: 8),
-                  loadingPoin 
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text(userPoin, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                ],
-              ),
+              loadingPoin 
+                ? const CircularProgressIndicator(color: Colors.white)
+                : Text(userPoin, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
             ],
           ),
-          const Icon(Icons.account_balance_wallet_rounded, color: Colors.white24, size: 40),
+          const Icon(Icons.stars_rounded, color: Colors.white24, size: 50),
         ],
       ),
     );
@@ -206,13 +301,10 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(15),
-          child: Container(
-            width: 80, height: 80, color: const Color(0xFFF0F4F8),
-            child: Image.network(
-              getCleanImageUrl(widget.data['gambar']),
-              fit: BoxFit.cover,
-              errorBuilder: (c, e, s) => const Icon(Icons.redeem, color: Color(0xFF1E56A0), size: 30),
-            ),
+          child: Image.network(
+            getCleanImageUrl(widget.data['gambar']),
+            width: 70, height: 70, fit: BoxFit.cover,
+            errorBuilder: (c, e, s) => const Icon(Icons.redeem, size: 40),
           ),
         ),
         const SizedBox(width: 15),
@@ -220,10 +312,8 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.data['nama_reward'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1B3D5F))),
-              const SizedBox(height: 4),
-              Text("${widget.data['poin_dibutuhkan']} Poin / item", style: const TextStyle(color: Color(0xFF3B71CA), fontWeight: FontWeight.w600)),
-              Text("Stok: ${widget.data['stok']}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              Text(widget.data['nama_reward'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text("${widget.data['poin_dibutuhkan']} Poin / item", style: const TextStyle(color: Color(0xFF3B71CA), fontSize: 13)),
             ],
           ),
         ),
@@ -232,22 +322,18 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
   }
 
   Widget _buildQuantitySelector(int stok) {
-    return Container(
-      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            onPressed: () => setState(() => jumlah > 1 ? jumlah-- : null),
-            icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-          ),
-          Text("$jumlah", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          IconButton(
-            onPressed: () => setState(() => jumlah < stok ? jumlah++ : null),
-            icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-          ),
-        ],
-      ),
+    return Row(
+      children: [
+        IconButton(onPressed: () => setState(() => jumlah > 1 ? jumlah-- : null), icon: const Icon(Icons.remove_circle, color: Colors.red)),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+          child: Text("$jumlah", style: const TextStyle(fontWeight: FontWeight.bold)),
+        ),
+        IconButton(onPressed: () => setState(() => jumlah < stok ? jumlah++ : null), icon: const Icon(Icons.add_circle, color: Colors.green)),
+        const Spacer(),
+        Text("Stok: $stok", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
     );
   }
 
@@ -255,33 +341,54 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
     return Row(
       children: [
         Checkbox(value: isAgreed, activeColor: const Color(0xFF1E56A0), onChanged: (val) => setState(() => isAgreed = val!)),
-        const Expanded(child: Text("Saya setuju dengan syarat & ketentuan yang berlaku", style: TextStyle(fontSize: 11, color: Colors.grey))),
+        const Expanded(child: Text("Data yang saya masukkan sudah benar.", style: TextStyle(fontSize: 11, color: Colors.grey))),
       ],
     );
   }
 
   Widget _buildSubmitButton(bool poinCukup, int stok) {
-    bool canSubmit = isAgreed && poinCukup && stok > 0 && !isSubmitting;
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: canSubmit ? () => _processRedemption() : null,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: canSubmit ? const Color(0xFF1E56A0) : Colors.grey.shade300,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-          elevation: 0,
+      // Tombol aktif hanya jika semua syarat terpenuhi
+      bool canSubmit = isAgreed && poinCukup && stok > 0 && !isSubmitting && _alamatController.text.isNotEmpty;
+
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: canSubmit ? () => _processRedemption() : null,
+          style: ElevatedButton.styleFrom(
+            // Warna background: Biru jika aktif, Abu-abu jika tidak aktif
+            backgroundColor: canSubmit ? const Color(0xFF1E56A0) : Colors.grey.shade400,
+            
+            // Warna teks & icon saat tombol AKTIF
+            foregroundColor: Colors.white,
+
+            // --- INI KUNCINYA ---
+            // Warna teks & icon saat tombol NON-AKTIF (Disabled)
+            // Kita paksa jadi putih agar tidak berubah jadi abu-abu pudar
+            disabledForegroundColor: Colors.white, 
+            disabledBackgroundColor: Colors.grey.shade400,
+            // --------------------
+
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            elevation: canSubmit ? 2 : 0,
+          ),
+          child: isSubmitting 
+            ? const SizedBox(
+                height: 20, 
+                width: 20, 
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+              )
+            : Text(
+                !poinCukup ? "Poin Tidak Cukup" : "Tukar Sekarang",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold, 
+                  fontSize: 16,
+                  color: Colors.white, // Memastikan warna teks tetap putih
+                ),
+              ),
         ),
-        child: isSubmitting 
-          ? const CircularProgressIndicator(color: Colors.white)
-          : Text(
-              !poinCukup ? "Poin Tidak Cukup" : "Konfirmasi Penukaran",
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-      ),
-    );
-  }
+      );
+    }
 
   Widget _summaryRow(String label, String value, {bool isPrimary = false}) {
     return Padding(
@@ -290,36 +397,32 @@ class _FormTukarPoinPageState extends State<FormTukarPoinPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: isPrimary ? const Color(0xFF1E56A0) : const Color(0xFF1B3D5F))),
+          Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: isPrimary ? const Color(0xFF1E56A0) : Colors.black)),
         ],
       ),
     );
   }
 
-  // Di dalam file FormTukarPoinPage.dart
+  void _processRedemption() async {
+    setState(() => isSubmitting = true);
 
-void _processRedemption() async {
-  setState(() => isSubmitting = true);
+    bool success = await RedeemService.redeemReward(
+      rewardId: widget.data['id'], 
+      jumlah: jumlah,
+      lat: _lat,
+      lng: _lng,
+      alamat: _alamatController.text,
+      catatan: _catatanController.text
+    );
 
-  // MEMANGGIL API REAL
-  bool success = await RedeemService.redeemReward(
-    widget.data['id'], 
-    jumlah
-  );
-
-  if (mounted) {
-    setState(() => isSubmitting = false);
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Penukaran Berhasil! Cek riwayat Anda."), backgroundColor: Colors.green),
-      );
-      // Kembali ke dashboard dan hapus semua stack halaman reward agar poin ter-refresh
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Gagal menukar. Poin tidak cukup atau stok habis."), backgroundColor: Colors.red),
-      );
+    if (mounted) {
+      setState(() => isSubmitting = false);
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Berhasil! Admin akan segera memproses."), backgroundColor: Colors.green));
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gagal menukar."), backgroundColor: Colors.red));
+      }
     }
   }
-}
 }

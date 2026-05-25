@@ -2,21 +2,40 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class PenukaranReward extends Model
 {
+    use HasFactory;
+
     protected $table = 'penukaran_reward';
-    protected $fillable = ['user_id', 'reward_id', 'poin_digunakan', 'status', 'tanggal_penukaran'];
+
     public $timestamps = false;
 
-    public function reward()
-    {
-        // Menghubungkan ke model Reward menggunakan kolom reward_id
-        return $this->belongsTo(Reward::class, 'reward_id');
-    }
+    // TAMBAHKAN KOLOM BARU DI SINI
+    protected $fillable = [
+        'user_id',
+        'reward_id',
+        'jumlah',
+        'poin_digunakan',
+        'status',
+        'lokasi_lat',
+        'lokasi_lng',
+        'alamat_pengiriman',
+        'catatan',
+        'tanggal_penukaran'
+    ];
+
+    // Relasi ke User
     public function user()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class);
+    }
+
+    // Relasi ke Reward
+    public function reward()
+    {
+        return $this->belongsTo(Reward::class);
     }
 }

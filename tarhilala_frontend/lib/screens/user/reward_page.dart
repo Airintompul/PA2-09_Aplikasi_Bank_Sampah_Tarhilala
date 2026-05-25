@@ -66,11 +66,45 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
   }
 
   Future<void> loadHistory() async {
+    setState(() => loadingHistory = true);
     final data = await RedeemService.getRiwayatRedeem();
     setState(() {
       history = data;
       loadingHistory = false;
     });
+  }
+
+  // --- LOGIC: KONFIRMASI TERIMA BARANG ---
+  void _handleKonfirmasiTerima(int id) async {
+    setState(() => loadingHistory = true);
+    
+    bool success = await RedeemService.confirmReceipt(id);
+    
+    if (success) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Berhasil! Hadiah telah diterima."), backgroundColor: Colors.green)
+        );
+        _initialLoad(); // Refresh semua data termasuk poin
+      }
+    } else {
+      if (mounted) {
+        setState(() => loadingHistory = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Gagal mengonfirmasi."), backgroundColor: Colors.red)
+        );
+      }
+    }
+  }
+
+  Color getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'selesai': return Colors.green;
+      case 'ditolak': return Colors.red;
+      case 'dikirim': return Colors.indigo;
+      case 'diproses': return Colors.blue;
+      default: return Colors.orange;
+    }
   }
 
   String getCleanImageUrl(String? url) {
@@ -98,7 +132,6 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 20),
-                    // Tombol Kembali
                     if (widget.showBackButton)
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
@@ -119,9 +152,9 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
                     _buildTabBar(),
                     const SizedBox(height: 20),
                     
-                    // Tab Content
                     SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.7, // Sesuaikan tinggi
+                      // Menggunakan tinggi dinamis berdasarkan konten agar bisa di-scroll di dalam RefreshIndicator
+                      height: MediaQuery.of(context).size.height * 0.65, 
                       child: TabBarView(
                         controller: _tabController,
                         children: [
@@ -140,7 +173,6 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
     );
   }
 
-  // Kartu Poin yang SAMA dengan Kartu Saldo di Dashboard
   Widget _buildPointsCard() {
     return Container(
       width: double.infinity,
@@ -214,13 +246,11 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
 
     return GridView.builder(
       padding: const EdgeInsets.only(bottom: 20),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 15,
         mainAxisSpacing: 15,
-        childAspectRatio: 0.7, // Mengatur agar card berbentuk persegi panjang vertikal
+        childAspectRatio: 0.65, 
       ),
       itemCount: rewards.length,
       itemBuilder: (context, index) => _buildRewardGridCard(rewards[index]),
@@ -237,7 +267,6 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Gambar Besar di bagian atas
           Expanded(
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -269,7 +298,7 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
                     const Icon(Icons.stars, color: Colors.amber, size: 14),
                     const SizedBox(width: 4),
                     Text(
-                      "${item['poin_dibutuhkan']} Poin",
+                      "${item['poin_dibutuhkan']} Pts",
                       style: const TextStyle(color: Color(0xFF3B71CA), fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ],
@@ -310,41 +339,81 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
       itemBuilder: (context, index) {
         final item = history[index];
         final reward = item['reward'];
+        final status = item['status'].toString().toLowerCase();
+
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10)],
           ),
-          child: Row(
+          child: Column(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  getCleanImageUrl(reward?['gambar']),
-                  width: 50, height: 50, fit: BoxFit.cover,
-                  errorBuilder: (c, e, s) => const Icon(Icons.history, color: Colors.grey),
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(reward?['nama_reward'] ?? "Reward", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1B3D5F))),
-                    Text(
-                      item['status'].toString().toUpperCase(),
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF3B71CA), fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      getCleanImageUrl(reward?['gambar']),
+                      width: 55, height: 55, fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => const Icon(Icons.history, color: Colors.grey, size: 30),
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(reward?['nama_reward'] ?? "Reward", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1B3D5F))),
+                        const SizedBox(height: 2),
+                        Text(
+                          status.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10, 
+                            color: getStatusColor(status), 
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        "-${item['poin_digunakan']} Poin",
+                        style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      Text("Qty: ${item['jumlah'] ?? 1}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    ],
+                  ),
+                ],
+              ),
+              
+              // --- TOMBOL AKSI: MUNCUL JIKA STATUS DIKIRIM ---
+              if (status == 'dikirim') ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Divider(color: Color(0xFFF1F3F4), thickness: 1),
                 ),
-              ),
-              Text(
-                "-${item['poin_digunakan']} Poin",
-                style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13),
-              ),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => _handleKonfirmasiTerima(item['id']),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text("Konfirmasi Hadiah Diterima", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  ),
+                ),
+              ]
             ],
           ),
         );

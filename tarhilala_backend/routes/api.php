@@ -70,6 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::post('/redeem', [RedeemController::class, 'redeem']);
         Route::get('/riwayat-reward', [RedeemController::class, 'riwayat']);
+        Route::post('redeem/{id}/confirm', [RedeemController::class, 'confirmReceipt']);
 
         Route::post('/tarik-saldo', [WithdrawalController::class, 'store']);
         Route::get('/riwayat-penarikan', [WithdrawalController::class, 'history']);
@@ -83,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+
     });
 
     // Route untuk Petugas/Driver
