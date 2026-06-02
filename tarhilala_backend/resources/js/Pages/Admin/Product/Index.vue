@@ -67,7 +67,6 @@ const handleUpdate = async () => {
     isLoading.value = true;
     try {
         const formData = new FormData();
-        formData.append('_method', 'PUT');
         formData.append('nama', currProduct.value.nama);
         formData.append('kategori', currProduct.value.kategori);
         formData.append('harga_per_kg', currProduct.value.harga_per_kg);

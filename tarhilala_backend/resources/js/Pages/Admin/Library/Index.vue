@@ -67,7 +67,6 @@ const handleUpdate = async () => {
     if (currContent.value.thumbnail instanceof File) {
         formData.append('thumbnail', currContent.value.thumbnail);
     }
-    formData.append('_method', 'PUT');
 
     try {
         await api.post(`/library/${currContent.value.id}`, formData);
