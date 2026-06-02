@@ -42,7 +42,7 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? token = prefs.getString('token');
       final response = await http.get(
-        Uri.parse("http://10.0.2.2:8000/api/profile"),
+        Uri.parse("http://13.250.117.185/api/profile"),
         headers: {"Authorization": "Bearer $token", "Accept": "application/json"},
       );
       if (response.statusCode == 200) {
@@ -110,7 +110,7 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
   String getCleanImageUrl(String? url) {
     if (url == null || url.isEmpty) return "";
     String cleaned = url.replaceAll("127.0.0.1", "10.0.2.2");
-    if (!cleaned.startsWith("http")) cleaned = "http://10.0.2.2:8000/storage/$cleaned";
+    if (!cleaned.startsWith("http")) cleaned = "http://13.250.117.185/storage/$cleaned";
     return cleaned.replaceAll(" ", "%20");
   }
 
@@ -133,17 +133,42 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
                   children: [
                     const SizedBox(height: 20),
                     if (widget.showBackButton)
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: const Padding(
-                          padding: EdgeInsets.only(bottom: 20),
-                          child: Row(
-                            children: [
-                              Icon(Icons.arrow_back_ios_new, size: 18, color: Color(0xFF1B3D5F)),
-                              SizedBox(width: 8),
-                              Text("Kembali", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1B3D5F))),
-                            ],
-                          ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 5,
+                                      offset: const Offset(0, 2),
+                                    )
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_back_ios_new, 
+                                  size: 18, 
+                                  color: Colors.black87
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 15),
+                            const Text(
+                              "Reward & Poin", // Judul halaman agar konsisten dengan Jual Sampah/Jadwal
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1B3D5F),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
 

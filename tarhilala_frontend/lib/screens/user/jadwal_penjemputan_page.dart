@@ -27,7 +27,7 @@ class _JadwalPenjemputanPageState extends State<JadwalPenjemputanPage> {
       String? token = prefs.getString('token');
 
       final response = await http.get(
-        Uri.parse("http://10.0.2.2:8000/api/nasabah/jadwal-nasabah"),
+        Uri.parse("http://13.250.117.185/api/nasabah/jadwal-nasabah"),
         headers: {
           "Authorization": "Bearer $token",
           "Accept": "application/json",
@@ -61,7 +61,25 @@ class _JadwalPenjemputanPageState extends State<JadwalPenjemputanPage> {
               children: [
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.arrow_back_ios_new, size: 20),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 5,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new, 
+                      size: 18, 
+                      color: Colors.black87
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 15),
                 const Text(

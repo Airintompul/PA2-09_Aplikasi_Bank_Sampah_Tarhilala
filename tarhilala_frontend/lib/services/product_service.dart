@@ -3,11 +3,11 @@ import 'package:http/http.dart' as http;
 
 class ProductService {
 
-  static const baseUrl = "http://10.0.2.2:8000/api";
+  static const baseUrl = "http://13.250.117.185/api";
 
   // PASTIKAN URL NYA BENAR (Gunakan IP 10.0.2.2 untuk emulator)
     static Future<List> getHargaSampah() async {
-      final response = await http.get(Uri.parse("http://10.0.2.2:8000/api/harga-sampah"));
+      final response = await http.get(Uri.parse("http://13.250.117.185/api/harga-sampah"));
       
       if (response.statusCode == 200) {
         return jsonDecode(response.body)['data']; // Pastikan sesuai struktur JSON Laravel Anda

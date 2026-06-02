@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ChatService {
   // Pastikan baseUrl ini sesuai dengan rute di Laravel Anda
-  static const String baseUrl = "http://10.0.2.2:8000/api/nasabah";
+  static const String baseUrl = "http://13.250.117.185/api/nasabah";
 
   static Future<String> _getToken() async {
     final prefs = await SharedPreferences.getInstance();

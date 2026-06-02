@@ -1,6 +1,12 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router';
 
+// 1. TERIMA PROP & DEFINISIKAN EMIT
+defineProps({
+    isCollapsed: Boolean
+});
+const emit = defineEmits(['toggle']);
+
 const route = useRoute();
 const router = useRouter();
 
@@ -19,50 +25,89 @@ const menus = [
 ];
 
 const handleLogout = () => {
-    // Hapus data login dari browser
     localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_user');
-    // Pindah ke halaman login
     router.push('/login');
 };
 </script>
 
 <template>
-    <aside class="w-64 bg-[#41D3BD] flex flex-col h-screen shadow-xl z-20">
-        <!-- Logo -->
-        <div class="p-6 mb-2 flex justify-center items-center">
-            <img src="/assets/img/Logo1.png" alt="Logo" class="w-40 h-auto object-contain">
+    <div class="flex flex-col h-full bg-[#41D3BD] shadow-xl transition-all duration-300 relative overflow-hidden">
+
+        <!-- HEADER SIDEBAR (LOGO & TOGGLE) -->
+        <!-- h-20 agar sejajar dengan tinggi Top Navbar di AdminLayout -->
+        <div class="h-20 flex items-center px-6 shrink-0 transition-all duration-300"
+             :class="isCollapsed ? 'justify-center' : 'justify-between'">
+
+            <!-- Logo: Hanya muncul jika lebar -->
+            <div v-if="!isCollapsed" class="flex items-center">
+                <img src="/assets/img/Logo1.png" alt="Logo" class="w-32 md:w-36 h-auto object-contain">
+            </div>
+
+            <!-- TOMBOL TOGGLE (Hanya muncul di Desktop LG) -->
+            <!-- Kita gunakan desain tombol kecil yang menyatu agar terlihat mewah -->
+            <button
+                @click="emit('toggle')"
+                class="hidden lg:flex w-8 h-8 bg-white/20 hover:bg-white/40 text-white rounded-lg items-center justify-center transition-all active:scale-90"
+            >
+                <i :class="isCollapsed ? 'fa-solid fa-bars' : 'fa-solid fa-align-left'" class="text-base"></i>
+            </button>
         </div>
 
-        <!-- Navigation -->
-        <nav class="flex-1 px-4 space-y-1 overflow-y-auto custom-sidebar-scroll">
+        <!-- AREA NAVIGASI (Dapat di-scroll secara internal) -->
+        <nav class="flex-1 px-4 space-y-1 overflow-y-auto overflow-x-hidden custom-sidebar-scroll pt-4">
             <router-link
                 v-for="menu in menus"
                 :key="menu.name"
                 :to="menu.path"
-                class="flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200"
-                :class="route.path === menu.path
-                    ? 'bg-white shadow-md text-gray-800'
-                    : 'text-white hover:bg-white/20'"
+                class="flex items-center px-4 py-3.5 rounded-xl transition-all duration-200 group mb-1"
+                :class="[
+                    route.path === menu.path
+                        ? 'bg-white shadow-lg text-gray-800'
+                        : 'text-white hover:bg-white/10',
+                    isCollapsed ? 'justify-center px-0' : 'space-x-4'
+                ]"
+                :title="isCollapsed ? menu.name : ''"
             >
-                <i :class="[menu.icon, 'w-6 text-center text-lg']"></i>
-                <span class="font-bold uppercase text-[11px] tracking-wider">{{ menu.name }}</span>
+                <!-- Icon: shrink-0 agar tidak gepeng saat sidebar sempit -->
+                <div class="w-6 flex justify-center shrink-0">
+                    <i :class="[menu.icon, 'text-lg']"></i>
+                </div>
+
+                <!-- Text Menu: font tracking agar terlihat modern -->
+                <span v-if="!isCollapsed"
+                      class="font-bold uppercase text-[10px] tracking-[0.1em] truncate transition-opacity duration-300">
+                    {{ menu.name }}
+                </span>
             </router-link>
         </nav>
 
-        <!-- Logout -->
-        <div class="p-4 mt-auto">
+        <!-- LOGOUT SECTION (Tetap di paling bawah) -->
+        <div class="p-4 mt-auto shrink-0 bg-[#3abda8]">
             <button
                 @click="handleLogout"
-                class="w-full flex items-center space-x-3 px-6 py-3 bg-white/30 hover:bg-white rounded-xl transition-all text-gray-800 font-black border border-white/20 uppercase text-xs"
+                class="w-full flex items-center bg-white/10 hover:bg-white/30 text-white rounded-xl transition-all font-black border border-white/10 uppercase text-[10px] tracking-widest"
+                :class="isCollapsed ? 'justify-center py-4' : 'px-4 py-3.5 space-x-4'"
             >
-                <i class="fa-solid fa-right-from-bracket rotate-180"></i>
-                <span>Logout</span>
+                <i class="fa-solid fa-right-from-bracket rotate-180 shrink-0"></i>
+                <span v-if="!isCollapsed">Logout</span>
             </button>
         </div>
-    </aside>
+    </div>
 </template>
 
 <style scoped>
-.custom-sidebar-scroll::-webkit-scrollbar { width: 0px; }
+/* Scrollbar khusus untuk Sidebar agar tipis dan modern di Android */
+.custom-sidebar-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+.custom-sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-sidebar-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+.custom-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
 </style>

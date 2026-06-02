@@ -200,7 +200,7 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                   child: Image.network(
-                    "http://10.0.2.2:8000/storage/${item['gambar'] ?? item['thumbnail']}",
+                    "http://13.250.117.185/storage/${item['gambar'] ?? item['thumbnail']}",
                     height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,
@@ -276,7 +276,7 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.network(
-                "http://10.0.2.2:8000/storage/${item['gambar'] ?? item['thumbnail']}",
+                "http://13.250.117.185/storage/${item['gambar'] ?? item['thumbnail']}",
                 width: 95, height: 95,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(width: 95, height: 95, color: Colors.grey.shade100),

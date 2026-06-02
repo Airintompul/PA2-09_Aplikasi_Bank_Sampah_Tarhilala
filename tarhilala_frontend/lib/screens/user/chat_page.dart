@@ -156,29 +156,45 @@ class _ChatPageState extends State<ChatPage> {
           const TopNavbar(), // Navbar atas konsisten
 
           // Sub-Header dengan tombol kembali
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.arrow_back_ios_new, size: 18, color: Color(0xFF1E56A0)),
-                  ),
-                ),
-                const SizedBox(width: 15),
-                const Text(
-                  "Bantuan Admin",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1B3D5F)),
-                ),
-              ],
-            ),
+// Sub-Header dengan tombol kembali (Sudah Disamakan)
+Padding(
+  padding: const EdgeInsets.fromLTRB(20, 20, 20, 10), // Padding disesuaikan agar rapi
+  child: Row(
+    children: [
+      GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle, // Berubah dari rounded square ke bulat
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              )
+            ],
           ),
+          child: const Icon(
+            Icons.arrow_back_ios_new, 
+            size: 18, 
+            color: Colors.black87 // Berubah ke warna hitam konsisten
+          ),
+        ),
+      ),
+      const SizedBox(width: 15),
+      const Text(
+        "Bantuan Admin",
+        style: TextStyle(
+          fontSize: 20, // Ukuran disamakan dengan header halaman lain
+          fontWeight: FontWeight.bold, 
+          color: Color(0xFF1B3D5F)
+        ),
+      ),
+    ],
+  ),
+),
 
           // Area Chat
           Expanded(

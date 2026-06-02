@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/setoran_model.dart'; 
 
 class PickupService {
-  static const String baseUrl = "http://10.0.2.2:8000/api"; 
+  static const String baseUrl = "http://13.250.117.185/api"; 
 
   // Helper untuk mengambil Token dari SharedPreferences
   Future<String?> _getToken() async {

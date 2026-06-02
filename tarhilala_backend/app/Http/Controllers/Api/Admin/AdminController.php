@@ -148,12 +148,16 @@ class AdminController extends Controller
 
 public function markAsRead($id)
 {
+    // Cari notif berdasarkan ID dan pastikan milik admin yang login
     $notification = Notifikasi::where('user_id', Auth::id())->findOrFail($id);
-    $notification->update(['is_read' => true]);
+
+    // Paksa update kolom is_read menjadi 1 (true)
+    $notification->is_read = 1;
+    $notification->save();
 
     return response()->json([
         'status' => 'success',
-        'message' => 'Notifikasi ditandai sudah dibaca'
+        'message' => 'Berhasil diperbarui'
     ]);
 }
 }

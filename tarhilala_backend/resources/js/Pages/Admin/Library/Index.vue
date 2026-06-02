@@ -1,6 +1,6 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import api from '@/api';
 
 // --- STATE DATA ---
@@ -13,11 +13,16 @@ const openAdd = ref(false);
 const openEdit = ref(false);
 const openDelete = ref(false);
 
+// --- LOGIC HIDE NAVBAR & BLUR ---
+const isAnyModalOpen = computed(() => {
+    return openAdd.value || openEdit.value || openDelete.value;
+});
+
 // State Form
 const currContent = ref({ id: '', judul: '', isi: '', status: 'draft', thumbnail: null });
 const imagePreview = ref(null);
 
-// --- LOGIC: AMBIL DATA DARI API ---
+// --- LOGIC: AMBIL DATA ---
 const fetchContents = async () => {
     try {
         const response = await api.get('/library');
@@ -29,14 +34,12 @@ const fetchContents = async () => {
     }
 };
 
-// --- LOGIC: HANDLE FILE INPUT ---
 const onFileChange = (e) => {
     const file = e.target.files[0];
     currContent.value.thumbnail = file;
     imagePreview.value = URL.createObjectURL(file);
 };
 
-// --- LOGIC: SIMPAN KONTEN BARU ---
 const handleStore = async () => {
     const formData = new FormData();
     formData.append('judul', currContent.value.judul);
@@ -56,7 +59,6 @@ const handleStore = async () => {
     }
 };
 
-// --- LOGIC: UPDATE KONTEN ---
 const handleUpdate = async () => {
     const formData = new FormData();
     formData.append('judul', currContent.value.judul);
@@ -65,8 +67,6 @@ const handleUpdate = async () => {
     if (currContent.value.thumbnail instanceof File) {
         formData.append('thumbnail', currContent.value.thumbnail);
     }
-
-    // Laravel Multipart Bug Fix: Spoofing PUT via POST
     formData.append('_method', 'PUT');
 
     try {
@@ -79,7 +79,6 @@ const handleUpdate = async () => {
     }
 };
 
-// --- LOGIC: HAPUS KONTEN ---
 const handleDelete = async () => {
     try {
         await api.delete(`/library/${currContent.value.id}`);
@@ -91,10 +90,9 @@ const handleDelete = async () => {
     }
 };
 
-// --- HELPERS ---
 const openEditModal = (content) => {
     currContent.value = { ...content };
-    imagePreview.value = content.thumbnail; // Menampilkan thumbnail lama
+    imagePreview.value = content.thumbnail;
     openEdit.value = true;
 };
 
@@ -114,106 +112,151 @@ onMounted(() => fetchContents());
 </script>
 
 <template>
-    <AdminLayout>
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-4xl font-black text-gray-900 uppercase tracking-tight">Library</h2>
-            <button @click="openAdd = true" class="flex items-center space-x-3 bg-[#41D3BD] hover:opacity-80 text-black px-8 py-4 rounded-[2rem] transition-all shadow-lg font-black uppercase text-sm tracking-widest">
-                <i class="fa-solid fa-plus text-lg"></i>
-                <span>Add Content</span>
-            </button>
-        </div>
+    <AdminLayout :hideNavbar="isAnyModalOpen">
 
-        <!-- Alert Berhasil -->
-        <div v-if="successMessage" class="mb-6 p-5 bg-green-500 text-white rounded-2xl font-bold shadow-lg flex items-center">
-            <i class="fa-solid fa-circle-check mr-3"></i> {{ successMessage }}
-        </div>
+        <!-- AREA BACKGROUND: Blur saat modal buka -->
+        <div :class="{'blur-md opacity-50 pointer-events-none transition-all duration-500': isAnyModalOpen}">
 
-        <!-- Table Container -->
-        <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 relative overflow-hidden">
-            <table class="w-full text-left">
-                <thead class="bg-[#41D3BD]">
-                    <tr>
-                        <th class="pl-20 py-6 w-40 rounded-tl-[2.5rem] text-black font-black uppercase text-sm">Thumbnail</th>
-                        <th class="px-6 py-6 text-black font-black uppercase text-sm">Judul Konten</th>
-                        <th class="px-6 py-6 text-black font-black uppercase text-sm text-center">Penulis</th>
-                        <th class="px-6 py-6 text-black font-black uppercase text-sm text-center">Status</th>
-                        <th class="px-8 py-6 text-center rounded-tr-[2.5rem]">
-                            <span class="bg-white px-5 py-1 rounded-lg text-xs font-black text-black uppercase">Action</span>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 text-black font-medium">
-                    <tr v-for="content in contents" :key="content.id" class="hover:bg-gray-50/50 transition-all">
-                        <td class="pl-20 py-6">
-                            <div class="w-24 h-16 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-50 overflow-hidden shadow-sm">
-                                <img v-if="content.thumbnail" :src="content.thumbnail" class="w-full h-full object-cover">
-                                <i v-else class="fa-solid fa-image text-gray-300 text-xl"></i>
+            <!-- Header Page: Gaya Setoran -->
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 px-2 md:px-0">
+                <div>
+                    <h2 class="text-2xl md:text-4xl font-black text-gray-900 uppercase tracking-tight leading-none">
+                        Daftar <span class="text-[#41D3BD]">Berita</span>
+                    </h2>
+                    <p class="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mt-2">
+                        Pusat Edukasi & Literasi Pengelolaan Sampah
+                    </p>
+                </div>
+                <button @click="openAdd = true" class="w-full md:w-auto flex items-center justify-center space-x-3 bg-[#41D3BD] hover:opacity-80 text-black px-8 py-4 rounded-2xl md:rounded-[2rem] transition-all shadow-lg font-black uppercase text-xs md:text-sm tracking-widest">
+                    <i class="fa-solid fa-plus text-lg"></i>
+                    <span>Add Content</span>
+                </button>
+            </div>
+
+            <!-- Alert Berhasil: Gaya Setoran -->
+            <div v-if="successMessage" class="mx-2 md:mx-0 mb-6 p-4 md:p-5 bg-black text-[#41D3BD] rounded-2xl md:rounded-3xl font-black shadow-xl flex items-center border-l-8 border-[#41D3BD] text-xs md:text-sm">
+                <i class="fa-solid fa-circle-check text-xl md:text-2xl mr-4"></i> {{ successMessage }}
+            </div>
+
+            <!-- 1. VIEW DESKTOP: TABEL -->
+            <div class="hidden lg:block bg-white rounded-[2.5rem] shadow-sm border border-gray-100 relative overflow-hidden transition-all duration-300">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-[#41D3BD]">
+                        <tr class="text-black font-black uppercase text-[11px] tracking-widest">
+                            <th class="pl-12 py-7 rounded-tl-[2.5rem]">Thumbnail</th>
+                            <th class="px-6 py-7">Judul Artikel</th>
+                            <th class="px-6 py-7 text-center">Status</th>
+                            <th class="px-6 py-7 text-center">Penulis</th>
+                            <th class="pr-12 py-7 text-right rounded-tr-[2.5rem]">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-50 font-medium">
+                        <tr v-for="content in contents" :key="content.id" class="hover:bg-gray-50/50 transition-all">
+                            <td class="pl-12 py-6">
+                                <div class="w-24 h-16 bg-slate-100 rounded-xl flex items-center justify-center border-2 border-white shadow-sm overflow-hidden shrink-0">
+                                    <img v-if="content.thumbnail" :src="content.thumbnail" class="w-full h-full object-cover">
+                                    <i v-else class="fa-solid fa-image text-gray-300 text-xl"></i>
+                                </div>
+                            </td>
+                            <td class="px-6 py-6">
+                                <div class="flex flex-col">
+                                    <span class="font-black text-lg uppercase text-blue-600 tracking-tighter leading-none truncate max-w-xs">{{ content.judul }}</span>
+                                    <span class="text-[10px] text-gray-400 font-bold uppercase mt-1">ID: #LIB-{{ content.id }}</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-6 text-center">
+                                <span class="px-4 py-1.5 rounded-full font-black text-[9px] uppercase tracking-widest border shadow-sm"
+                                    :class="content.status === 'published' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-red-50 text-red-600 border-red-100'">
+                                    {{ content.status }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-6 text-center font-black text-gray-600 text-xs uppercase tracking-tight">
+                                {{ content.penulis?.nama || 'Administrator' }}
+                            </td>
+                            <td class="pr-12 py-6 text-right">
+                                <div class="flex justify-end space-x-2">
+                                    <button @click="openEditModal(content)" class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm flex items-center justify-center">
+                                        <i class="fa-solid fa-pen-nib"></i>
+                                    </button>
+                                    <button @click="currContent = content; openDelete = true" class="w-10 h-10 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm flex items-center justify-center">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 2. VIEW MOBILE: CARDS -->
+            <div class="lg:hidden space-y-4 px-2 pb-10">
+                <div v-for="content in contents" :key="content.id" class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
+                    <div class="flex items-center space-x-4">
+                        <div class="w-20 h-20 bg-slate-100 rounded-2xl border border-white shadow-sm overflow-hidden shrink-0">
+                            <img v-if="content.thumbnail" :src="content.thumbnail" class="w-full h-full object-cover">
+                            <i v-else class="fa-solid fa-image text-gray-300 text-xl"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex justify-between items-start">
+                                <span class="text-[8px] font-black uppercase px-2 py-0.5 rounded border tracking-widest shadow-sm"
+                                    :class="content.status === 'published' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-red-50 text-red-600 border-red-100'">
+                                    {{ content.status }}
+                                </span>
+                                <div class="flex space-x-1">
+                                    <button @click="openEditModal(content)" class="text-blue-500 p-1"><i class="fa-solid fa-pen-nib"></i></button>
+                                    <button @click="currContent = content; openDelete = true" class="text-red-500 p-1"><i class="fa-solid fa-trash"></i></button>
+                                </div>
                             </div>
-                        </td>
-                        <td class="px-6 py-6 font-black text-blue-600 uppercase truncate max-w-xs">{{ content.judul }}</td>
-                        <td class="px-6 py-6 text-center font-bold text-gray-500">{{ content.penulis?.nama || 'Admin' }}</td>
-                        <td class="px-6 py-6 text-center">
-                            <span class="px-4 py-1 rounded-full font-black text-[10px] uppercase border"
-                                :class="content.status === 'published' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-red-50 text-red-600 border-red-200'">
-                                {{ content.status }}
-                            </span>
-                        </td>
-                        <td class="px-8 py-6 text-center">
-                            <div class="flex justify-center space-x-2">
-                                <button @click="openEditModal(content)" class="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all">
-                                    <i class="fa-solid fa-pen-to-square"></i>
-                                </button>
-                                <button @click="currContent = content; openDelete = true" class="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            <div class="h-6"></div>
+                            <h3 class="text-sm font-black text-blue-600 uppercase mt-1 truncate tracking-tighter">{{ content.judul }}</h3>
+                            <p class="text-[9px] font-bold text-gray-400 uppercase mt-1">Author: {{ content.penulis?.nama || 'Admin' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- MODAL ADD/EDIT -->
-        <div v-if="openAdd || openEdit" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-            <div class="bg-white rounded-[3rem] max-w-2xl w-full p-10 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-                <h3 class="text-2xl font-black text-gray-800 uppercase tracking-tighter mb-8 text-center">
-                    {{ openAdd ? 'Add New Content' : 'Update Content' }}
+        <!-- MODAL ADD/EDIT: DIPERKECIL (max-w-xl) & Gaya Font Target -->
+        <div v-if="openAdd || openEdit" class="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-8 transition-all">
+            <div class="bg-white rounded-[2.5rem] max-w-xl w-full p-6 md:p-10 shadow-2xl relative overflow-y-auto max-h-[92vh] border-[6px] border-slate-900 transition-all">
+                <h3 class="text-xl md:text-2xl font-black text-gray-800 uppercase tracking-tighter mb-8 text-center">
+                    {{ openAdd ? 'Publish Content' : 'Update Content' }}
                 </h3>
 
-                <form @submit.prevent="openAdd ? handleStore() : handleUpdate()" class="space-y-4">
+                <form @submit.prevent="openAdd ? handleStore() : handleUpdate()" class="space-y-5">
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Judul Artikel</label>
-                        <input v-model="currContent.judul" type="text" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700">
+                        <label class="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Judul Artikel</label>
+                        <input v-model="currContent.judul" type="text" required class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700 text-sm uppercase">
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Status</label>
-                            <select v-model="currContent.status" class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700 text-xs uppercase">
-                                <option value="draft">Draft</option>
-                                <option value="published">Published</option>
-                                <option value="archived">Archived</option>
+                            <label class="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Status Publikasi</label>
+                            <select v-model="currContent.status" class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-black text-gray-700 text-xs uppercase">
+                                <option value="draft">DRAFT MODE</option>
+                                <option value="published">PUBLISHED</option>
+                                <option value="archived">ARCHIVED</option>
                             </select>
                         </div>
                         <div>
-                            <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Upload Thumbnail</label>
-                            <input type="file" @change="onFileChange" class="w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-[#41D3BD]/10 file:text-[#41D3BD] hover:file:bg-[#41D3BD]/20" />
+                            <label class="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Ganti Thumbnail</label>
+                            <input type="file" @change="onFileChange" class="w-full text-[10px] text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-[#41D3BD]/10 file:text-[#41D3BD]">
                         </div>
                     </div>
 
                     <div>
-                        <label class="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Isi Konten</label>
-                        <textarea v-model="currContent.isi" rows="6" required class="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700"></textarea>
+                        <label class="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Isi Konten Artikel</label>
+                        <textarea v-model="currContent.isi" rows="5" required class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700 text-sm leading-relaxed"></textarea>
                     </div>
 
-                    <div v-if="imagePreview" class="w-full h-32 rounded-2xl overflow-hidden border border-gray-100">
+                    <div v-if="imagePreview" class="w-full h-32 md:h-40 rounded-2xl overflow-hidden border-2 border-white bg-gray-50 shadow-md">
                         <img :src="imagePreview" class="w-full h-full object-cover">
                     </div>
 
-                    <div class="flex justify-end space-x-3 pt-6 border-t border-gray-50">
-                        <button @click="closeModals" type="button" class="px-8 py-4 bg-gray-100 rounded-2xl font-black text-gray-400 uppercase text-xs tracking-widest">Batal</button>
-                        <button type="submit" class="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg uppercase text-xs tracking-widest hover:scale-105 transition-all">Simpan</button>
+                    <div class="flex flex-col-reverse md:flex-row justify-end gap-3 pt-6 border-t border-gray-50">
+                        <button @click="closeModals" type="button" class="w-full md:w-auto px-8 py-4 bg-gray-100 rounded-full font-black text-gray-400 uppercase text-[10px] tracking-widest">Batal</button>
+                        <button type="submit" class="w-full md:w-auto px-10 py-4 bg-blue-600 text-white rounded-full font-black shadow-lg uppercase text-[10px] hover:scale-105 transition-all">
+                            Simpan Artikel
+                        </button>
                     </div>
                 </form>
             </div>
@@ -221,17 +264,21 @@ onMounted(() => fetchContents());
 
         <!-- MODAL DELETE -->
         <div v-if="openDelete" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-            <div class="bg-white rounded-[3rem] max-w-sm w-full p-10 text-center shadow-2xl">
-                <div class="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl">
+            <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-8 text-center shadow-2xl border-b-8 border-gray-900">
+                <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner">
                     <i class="fa-solid fa-trash-can"></i>
                 </div>
-                <h3 class="text-xl font-black text-gray-800 uppercase tracking-tight mb-2">Hapus Artikel?</h3>
-                <p class="text-gray-400 text-sm font-bold mb-8 uppercase tracking-tighter">Konten <span class="text-red-500">{{ currContent.judul }}</span> akan dihapus permanen.</p>
-                <div class="flex justify-center space-x-3">
-                    <button @click="openDelete = false" class="px-8 py-4 bg-gray-100 rounded-2xl font-black text-gray-400 uppercase text-xs">Batal</button>
-                    <button @click="handleDelete" class="px-8 py-4 bg-red-600 text-white rounded-2xl font-black shadow-lg shadow-red-200 uppercase text-xs">Ya, Hapus</button>
+                <h3 class="text-lg font-black text-gray-900 uppercase tracking-tighter mb-2">Hapus Artikel?</h3>
+                <p class="text-gray-400 text-[10px] font-bold mb-8 uppercase tracking-widest">Konten <span class="text-red-500">{{ currContent.judul }}</span> akan dihapus permanen.</p>
+                <div class="flex space-x-2">
+                    <button @click="openDelete = false" class="flex-1 py-4 bg-gray-100 rounded-2xl font-black text-gray-400 uppercase text-[10px]">Batal</button>
+                    <button @click="handleDelete" class="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black shadow-lg uppercase text-[10px]">Ya, Hapus</button>
                 </div>
             </div>
         </div>
     </AdminLayout>
 </template>
+
+<style scoped>
+.transition-all { transition: all 0.3s ease-in-out; }
+</style>

@@ -75,7 +75,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
 
   try {
     final response = await http.get(
-      Uri.parse("http://10.0.2.2:8000/api/profile"), // Pastikan URL benar
+      Uri.parse("http://13.250.117.185/api/profile"), // Pastikan URL benar
       headers: {
         "Authorization": "Bearer $token",
         "Accept": "application/json",
@@ -420,7 +420,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               child: Image.network(
-                "http://10.0.2.2:8000/storage/${item['gambar'] ?? item['thumbnail']}",
+                "http://13.250.117.185/storage/${item['gambar'] ?? item['thumbnail']}",
                 height: 180, width: double.infinity, fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(height: 180, color: Colors.grey[200]),
               ),

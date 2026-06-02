@@ -85,7 +85,7 @@ class DetailBeritaPage extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(15),
                 child: Image.network(
-                  "http://10.0.2.2:8000/storage/${data['gambar'] ?? data['thumbnail']}",
+                  "http://13.250.117.185/storage/${data['gambar'] ?? data['thumbnail']}",
                   width: double.infinity,
                   height: 230,
                   fit: BoxFit.cover,
@@ -176,7 +176,7 @@ class DetailBeritaPage extends StatelessWidget {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
-                            "http://10.0.2.2:8000/storage/${item['gambar'] ?? item['thumbnail']}",
+                            "http://13.250.117.185/storage/${item['gambar'] ?? item['thumbnail']}",
                             width: 80, height: 80,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) => 
