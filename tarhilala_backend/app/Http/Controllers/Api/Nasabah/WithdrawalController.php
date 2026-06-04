@@ -91,4 +91,35 @@ public function updateStatus(Request $request, $id) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+    public function exportForAdmin(Request $request)
+    {
+        try {
+            // 1. Minta file ke Service Keuangan (8001)
+            $response = Http::withHeaders([
+                'X-Internal-Key' => env('INTERNAL_API_KEY', 'TarhilalaSecretFinanceKey2024'),
+            ])->get("http://127.0.0.1:8001/api/admin/withdrawal-export");
+
+            if ($response->failed()) {
+
+    \Log::error('EXPORT ERROR', [
+        'status' => $response->status(),
+        'body' => $response->body()
+    ]);
+
+    return response()->json([
+        'message' => 'Gagal mengambil data dari service keuangan',
+        'status' => $response->status(),
+        'body' => $response->body()
+    ], 500);
+}
+
+            // 2. Kirim kembali file tersebut ke Frontend
+            return response($response->body(), 200)
+                ->header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                ->header('Content-Disposition', 'attachment; filename="Laporan_Penarikan.xlsx"');
+
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Kesalahan sistem: ' . $e->getMessage()], 500);
+        }
+    }
 }

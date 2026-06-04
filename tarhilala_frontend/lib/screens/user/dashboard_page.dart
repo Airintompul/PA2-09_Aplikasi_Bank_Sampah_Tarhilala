@@ -133,7 +133,12 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
 
   Future<void> loadBerita() async {
     final data = await NewsService.getBerita();
-    setState(() => berita = data);
+    setState(() {
+      // TAMBAHKAN FILTER .where DI SINI
+      berita = data.where((item) => 
+        item['status'].toString().toLowerCase() == 'published'
+      ).toList();
+    });
     if (berita.isNotEmpty) _startNewsAutoScroll();
   }
 
@@ -406,41 +411,135 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     );
   }
 
-  Widget _beritaCard(Map item) {
-    String rawDate = item['created_at'] ?? item['tanggal'] ?? DateTime.now().toString();
-    String waktuRelatif = timeago.format(DateTime.parse(rawDate), locale: 'id');
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailBeritaPage(data: item))),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              child: Image.network(
-                "http://13.250.117.185/storage/${item['gambar'] ?? item['thumbnail']}",
-                height: 180, width: double.infinity, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(height: 180, color: Colors.grey[200]),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(15),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Bank Sampah Tarhila", style: TextStyle(color: Color(0xFF3B71CA), fontSize: 11, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text(item['judul'] ?? "Tanpa Judul", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 2, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 12),
-                  Text("Tarhila News • $waktuRelatif", style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                ],
-              ),
-            )
-          ],
-        ),
-      ),
-    );
+Widget _beritaCard(Map item) {
+  // 1. Ambil data tanggal dan konversi ke waktu relatif (contoh: 2 jam yang lalu)
+  String rawDate = item['created_at'] ?? DateTime.now().toString();
+  String waktuRelatif = "Baru saja";
+  try {
+    waktuRelatif = timeago.format(DateTime.parse(rawDate), locale: 'id');
+  } catch (e) {
+    waktuRelatif = "Baru saja";
   }
+
+  // 2. Logic Perbaikan URL Gambar agar tidak error "No Host Specified"
+  String thumbnailPath = item['thumbnail'] ?? '';
+  String fullImageUrl = "";
+
+  if (thumbnailPath.isEmpty) {
+    fullImageUrl = ""; // Nanti akan ditangani oleh errorBuilder
+  } else if (thumbnailPath.startsWith('http')) {
+    // Jika backend sudah mengirim http://13.250.117.185/assets/...
+    fullImageUrl = thumbnailPath;
+  } else {
+    // Jika backend hanya mengirim assets/img/thumbnails/file.jpg
+    // Kita gabungkan manual dengan IP server
+    fullImageUrl = "http://13.250.117.185/$thumbnailPath";
+  }
+
+  return GestureDetector(
+    onTap: () => Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => DetailBeritaPage(data: item)),
+    ),
+    child: Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // BAGIAN GAMBAR
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: Image.network(
+              fullImageUrl,
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              // Tampilan saat gambar sedang didownload
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  height: 180,
+                  color: Colors.grey[100],
+                  child: const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              },
+              // Tampilan jika gambar gagal dimuat (Error 404 atau URL Salah)
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 180,
+                  width: double.infinity,
+                  color: Colors.grey[200],
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                      SizedBox(height: 8),
+                      Text(
+                        "Gambar tidak tersedia",
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          // BAGIAN TEKS INFORMASI
+          Padding(
+            padding: const EdgeInsets.all(15),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Bank Sampah Tarhila",
+                  style: TextStyle(
+                    color: Color(0xFF3B71CA),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  item['judul'] ?? "Tanpa Judul",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Color(0xFF1B3D5F),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.access_time, size: 12, color: Colors.grey),
+                    const SizedBox(width: 5),
+                    Text(
+                      "Tarhila News • $waktuRelatif",
+                      style: const TextStyle(color: Colors.grey, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
+    ),
+  );
+}
 }

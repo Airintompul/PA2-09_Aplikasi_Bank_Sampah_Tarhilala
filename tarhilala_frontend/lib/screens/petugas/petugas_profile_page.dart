@@ -123,18 +123,21 @@ class _PetugasProfilePageState extends State<PetugasProfilePage> {
       ),
 
       // 3. BOTTOM NAVBAR PETUGAS
+// 3. BOTTOM NAVBAR PETUGAS
       bottomNavigationBar: PetugasBottomNavbar(
-        currentIndex: 3, // Index 3 adalah menu Akun
+        currentIndex: 4, // Sekarang benar, Akun adalah index 4
         onTap: (index) {
           if (index == 0) {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PetugasDashboardPage()));
           } else if (index == 1) {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PetugasTransaksiPage()));
           } else if (index == 2) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const PetugasRutePage()));
+          } else if (index == 3) {
+            // SEKARANG COCOK: Index 3 adalah Setoran
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PetugasSetoranPage()));
-          } else if (index == 4) {
-            // Logika pindah ke Rute/Map jika data listRute tersedia
           }
+          // Index 4 adalah Akun (Halaman ini sendiri), jadi tidak perlu navigasi lagi
         },
       ),
     );

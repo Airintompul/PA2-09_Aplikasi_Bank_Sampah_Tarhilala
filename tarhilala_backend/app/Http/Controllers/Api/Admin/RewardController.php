@@ -28,8 +28,8 @@ class RewardController extends Controller
     {
         $request->validate([
             'nama_reward'     => 'required|string|max:200|unique:reward,nama_reward',
-            'poin_dibutuhkan' => 'required|numeric',
-            'stok'            => 'required|numeric',
+            'poin_dibutuhkan' => 'required|numeric|min:0',
+            'stok'            => 'required|numeric|min:0',
             'deskripsi'       => 'nullable|string',
             'gambar'          => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
@@ -58,8 +58,8 @@ class RewardController extends Controller
 
         $request->validate([
             'nama_reward'     => "required|string|max:200|unique:reward,nama_reward,$id",
-            'poin_dibutuhkan' => 'required|numeric',
-            'stok'            => 'required|numeric',
+            'poin_dibutuhkan' => 'required|numeric|min:0',
+            'stok'            => 'required|numeric|min:0',
             'deskripsi'       => 'nullable|string',
             'gambar'          => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);

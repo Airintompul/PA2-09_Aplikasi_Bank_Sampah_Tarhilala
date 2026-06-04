@@ -47,7 +47,7 @@ class ProductController extends Controller
         $request->validate([
             'nama' => 'required|string|max:100',
             'kategori' => 'required|string|max:100',
-            'harga_per_kg' => 'required|numeric',
+            'harga_per_kg' => 'required|numeric|min:0',
             'gambar' => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
@@ -80,7 +80,7 @@ class ProductController extends Controller
         // Tambahkan ,$id agar Laravel mengabaikan dirinya sendiri saat cek nama unik
         'nama' => "required|string|max:100|unique:jenis_sampah,nama,$id",
         'kategori' => 'required|string|max:100',
-        'harga_per_kg' => 'required|numeric',
+        'harga_per_kg' => 'required|numeric|min:0',
         'gambar' => 'sometimes|nullable|image|mimes:jpeg,png,jpg|max:2048',
     ]);
 

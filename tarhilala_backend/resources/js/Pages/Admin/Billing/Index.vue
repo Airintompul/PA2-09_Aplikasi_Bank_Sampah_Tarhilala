@@ -1,6 +1,6 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { ref, onMounted, computed } from 'vue'; // Tambahkan computed
+import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import { financeApi } from '@/api';
 
@@ -8,7 +8,9 @@ import { financeApi } from '@/api';
 const withdrawals = ref([]);
 const isLoading = ref(true);
 const isSubmitting = ref(false);
+const isExporting = ref(false); // State loading untuk ekspor
 const successMessage = ref('');
+const errorMessage = ref('');
 
 const openEdit = ref(false);
 const currWD = ref({ id: '', user_id: '', jumlah: '', status: '', metode: '', nomor_tujuan: '', nama_penerima: '' });
@@ -30,6 +32,48 @@ const fetchWithdrawals = async () => {
         isLoading.value = false;
     }
 };
+
+// =========================================================================
+// LOGIC TOMBOL EKSPOR (FUNGSI UTAMA)
+// =========================================================================
+const handleExport = async () => {
+    isExporting.value = true;
+    try {
+        // Tembak API Export di Service Gateway (Port 8000)
+        const response = await axios.get('/api/admin/penarikan/export', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('admin_token')}` },
+            responseType: 'blob', // PENTING: Menerima file sebagai data binary
+        });
+
+        // Proses pengunduhan di browser
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Nama file yang akan muncul di komputer admin
+        const date = new Date().toLocaleDateString().replace(/\//g, '-');
+        link.setAttribute('download', `Laporan-Penarikan-Tanggal-${date}.xlsx`);
+
+        document.body.appendChild(link);
+        link.click();
+
+        // Bersihkan resource memori
+        link.remove();
+        window.URL.revokeObjectURL(url);
+
+        showSuccess("Laporan Excel berhasil diunduh!");
+    } catch (error) {
+    console.log("FULL ERROR:", error);
+
+    if (error.response) {
+        const text = await error.response.data.text();
+        console.log(text);
+    }
+    } finally {
+        isExporting.value = false;
+    }
+};
+// =========================================================================
 
 const onFileChange = (e) => {
     selectedFile.value = e.target.files[0];
@@ -92,13 +136,11 @@ onMounted(() => fetchWithdrawals());
 </script>
 
 <template>
-    <!-- 1. Kirim isAnyModalOpen ke Layout -->
     <AdminLayout :hideNavbar="isAnyModalOpen">
 
-        <!-- 2. Area Konten Utama (Blur saat modal buka) -->
         <div :class="{'blur-md opacity-50 pointer-events-none transition-all duration-500': isAnyModalOpen}">
 
-            <!-- Header Section: Gaya Setoran.vue -->
+            <!-- Header Section -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 px-2 md:px-0">
                 <div>
                     <h2 class="text-2xl md:text-4xl font-black text-gray-900 uppercase tracking-tight leading-none">
@@ -108,20 +150,27 @@ onMounted(() => fetchWithdrawals());
                         Manajemen Pencairan Dana & Transaksi Nasabah
                     </p>
                 </div>
-                <button class="w-full md:w-auto flex items-center justify-center space-x-3 bg-[#41D3BD] hover:opacity-80 text-black px-8 py-4 rounded-2xl md:rounded-[2rem] transition-all shadow-lg font-black uppercase text-xs md:text-sm tracking-widest">
-                    <i class="fa-solid fa-file-invoice-dollar text-lg"></i>
-                    <span>Ekspor Laporan</span>
+
+                <!-- TOMBOL EKSPOR: Sekarang berfungsi memanggil handleExport -->
+                <button
+                    @click="handleExport"
+                    :disabled="isExporting"
+                    class="w-full md:w-auto flex items-center justify-center space-x-3 bg-[#41D3BD] hover:opacity-80 text-black px-8 py-4 rounded-2xl md:rounded-[2rem] transition-all shadow-lg font-black uppercase text-xs md:text-sm tracking-widest disabled:opacity-50"
+                >
+                    <i v-if="isExporting" class="fa-solid fa-spinner animate-spin text-lg"></i>
+                    <i v-else class="fa-solid fa-file-excel text-lg"></i>
+                    <span>{{ isExporting ? 'Processing...' : 'Ekspor Laporan' }}</span>
                 </button>
             </div>
 
-            <!-- Alert: Hitam Teal gaya Setoran.vue -->
+            <!-- Alert Notifikasi -->
             <Transition name="fade">
                 <div v-if="successMessage" class="mx-2 md:mx-0 mb-6 p-4 md:p-5 bg-black text-[#41D3BD] rounded-2xl md:rounded-3xl font-black shadow-xl flex items-center border-l-8 border-[#41D3BD] text-xs md:text-sm">
                     <i class="fa-solid fa-circle-check text-xl md:text-2xl mr-4"></i> {{ successMessage }}
                 </div>
             </Transition>
 
-            <!-- 1. VIEW DESKTOP: TABEL -->
+            <!-- VIEW DESKTOP: TABEL -->
             <div class="hidden lg:block bg-white rounded-[2.5rem] shadow-sm border border-gray-100 relative overflow-hidden transition-all duration-300">
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-[#41D3BD]">
@@ -175,7 +224,7 @@ onMounted(() => fetchWithdrawals());
                 </table>
             </div>
 
-            <!-- 2. VIEW MOBILE: CARDS -->
+            <!-- VIEW MOBILE: CARDS -->
             <div class="lg:hidden space-y-4 px-2 pb-10">
                 <div v-for="wd in withdrawals" :key="wd.id" class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
                     <div class="flex justify-between items-start">
@@ -199,13 +248,12 @@ onMounted(() => fetchWithdrawals());
                         </button>
                     </div>
                 </div>
-                <div v-if="isLoading" class="text-center py-10 font-black text-gray-300 uppercase text-[10px]">Updating Ledger...</div>
             </div>
         </div>
 
-        <!-- 3. MODAL: DIPERKECIL (max-w-xl) & Gaya Target Font -->
+        <!-- MODAL UPDATE -->
         <div v-if="openEdit" class="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-8">
-            <div class="bg-white rounded-[2.5rem] md:rounded-[3rem] max-w-xl w-full p-6 md:p-10 shadow-2xl relative max-h-[92vh] overflow-y-auto border-[6px] border-slate-900 transition-all duration-300">
+            <div class="bg-white rounded-[2.5rem] md:rounded-[3rem] max-w-xl w-full p-6 md:p-10 shadow-2xl relative overflow-y-auto max-h-[92vh] border-[6px] border-slate-900 transition-all duration-300">
                 <div class="flex flex-col items-center text-center mb-8">
                     <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-4 shadow-inner"><i class="fa-solid fa-money-check-dollar"></i></div>
                     <h3 class="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">Verifikasi Pencairan</h3>

@@ -7,12 +7,26 @@ class DetailBeritaPage extends StatelessWidget {
 
   const DetailBeritaPage({super.key, required this.data});
 
+  // --- LOGIC HELPER URL GAMBAR (KONSISTEN DENGAN DASHBOARD) ---
+  String getImageUrl(dynamic item) {
+    String path = item is Map ? (item['thumbnail'] ?? item['gambar'] ?? '') : '';
+    if (path.isEmpty) return "";
+    if (path.startsWith('http')) return path;
+    // Gabungkan dengan IP server (Menyesuaikan folder assets Laravel)
+    return "http://13.250.117.185/$path";
+  }
+
   @override
   Widget build(BuildContext context) {
     List beritaTerkait = data['berita_terkait'] ?? [];
 
     String rawDate = data['created_at'] ?? data['tanggal'] ?? DateTime.now().toString();
-    String waktuRelatifUtama = timeago.format(DateTime.parse(rawDate), locale: 'id');
+    String waktuRelatifUtama = "Baru saja";
+    try {
+      waktuRelatifUtama = timeago.format(DateTime.parse(rawDate), locale: 'id');
+    } catch (e) {
+      waktuRelatifUtama = "Baru saja";
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -22,7 +36,7 @@ class DetailBeritaPage extends StatelessWidget {
           children: [
             const TopNavbar(),
 
-            /// --- HEADER: TOMBOL BACK & SEARCH BAR RAPI ---
+            /// --- HEADER: TOMBOL BACK ---
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
               child: Row(
@@ -46,31 +60,13 @@ class DetailBeritaPage extends StatelessWidget {
                           size: 18, color: Colors.black87),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          )
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.search, size: 20, color: Colors.grey.shade400),
-                          const SizedBox(width: 10),
-                          Text(
-                            "Cari berita...",
-                            style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                          ),
-                        ],
-                      ),
+                  const SizedBox(width: 15),
+                  const Text(
+                    "Detail Berita",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1B3D5F),
                     ),
                   ),
                 ],
@@ -79,27 +75,35 @@ class DetailBeritaPage extends StatelessWidget {
 
             const SizedBox(height: 15),
 
-            // GAMBAR UTAMA
+            // GAMBAR UTAMA BERITA
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(20),
                 child: Image.network(
-                  "http://13.250.117.185/storage/${data['gambar'] ?? data['thumbnail']}",
+                  getImageUrl(data), // MENGGUNAKAN HELPER URL
                   width: double.infinity,
-                  height: 230,
+                  height: 250,
                   fit: BoxFit.cover,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      height: 250,
+                      color: Colors.grey[100],
+                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    );
+                  },
                   errorBuilder: (context, error, stackTrace) => Container(
-                    height: 230,
+                    height: 250,
                     width: double.infinity,
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.image_not_supported, size: 50),
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
                   ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 25),
 
             // JUDUL BERITA
             Padding(
@@ -107,97 +111,112 @@ class DetailBeritaPage extends StatelessWidget {
               child: Text(
                 data['judul'] ?? "Tanpa Judul",
                 style: const TextStyle(
-                  fontSize: 20,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  height: 1.3,
-                  color: Colors.black,
+                  height: 1.4,
+                  color: Color(0xFF1B3D5F),
                 ),
               ),
             ),
 
             const SizedBox(height: 12),
 
-            // METADATA
+            // METADATA (Author & Waktu)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                "Tarhilala News  •  $waktuRelatifUtama",
-                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B71CA).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      "Official News",
+                      style: TextStyle(color: Color(0xFF3B71CA), fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    "•  $waktuRelatifUtama",
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                  ),
+                ],
               ),
             ),
 
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Divider(thickness: 0.8, height: 35, color: Color(0xFFEEEEEE)),
+              child: Divider(thickness: 1, height: 40, color: Color(0xFFF1F1F1)),
             ),
 
-            // ISI BERITA
+            // ISI KONTEN BERITA
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
-                data['isi'] ?? "Tidak ada konten.",
-                textAlign: TextAlign.justify,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.6,
-                  color: Colors.black.withOpacity(0.8),
+                data['isi'] ?? "Tidak ada konten tersedia.",
+                style: const TextStyle(
+                  fontSize: 15,
+                  height: 1.8,
+                  color: Color(0xFF444444),
                 ),
               ),
             ),
 
-            const SizedBox(height: 35),
+            const SizedBox(height: 40),
 
-            // BERITA TERKAIT SECTION
+            // SECTION BERITA TERKAIT
             if (beritaTerkait.isNotEmpty) ...[
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
-                  "Berita Terkait",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  "Berita Lainnya",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1B3D5F)),
                 ),
               ),
               const SizedBox(height: 15),
               
               ...beritaTerkait.map((item) {
-                String rawItemDate = item['created_at'] ?? item['tanggal'] ?? DateTime.now().toString();
-                String waktuRelatifItem = timeago.format(DateTime.parse(rawItemDate), locale: 'id');
+                String rawItemDate = item['created_at'] ?? DateTime.now().toString();
+                String waktuItem = timeago.format(DateTime.parse(rawItemDate), locale: 'id');
 
                 return Padding(
                   padding: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
                   child: Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade100),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
                     ),
                     child: Row(
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           child: Image.network(
-                            "http://13.250.117.185/storage/${item['gambar'] ?? item['thumbnail']}",
+                            getImageUrl(item), // MENGGUNAKAN HELPER URL
                             width: 80, height: 80,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) => 
                               Container(width: 80, height: 80, color: Colors.grey[200]),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 15),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 item['judul'] ?? "",
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1B3D5F)),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                "Tarhilala News  •  $waktuRelatifItem",
-                                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                                "Tarhilala News  •  $waktuItem",
+                                style: TextStyle(fontSize: 10, color: Colors.grey[400]),
                               ),
                             ],
                           ),

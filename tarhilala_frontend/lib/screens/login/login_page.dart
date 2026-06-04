@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../register/register_page.dart';
+import '../auth/forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -11,6 +13,7 @@ class _LoginPageState extends State<LoginPage> {
   TextEditingController password = TextEditingController();
 
   bool loading = false;
+  bool _obscurePassword = true;
 
   void showCustomSnackBar(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -41,6 +44,43 @@ class _LoginPageState extends State<LoginPage> {
         margin: EdgeInsets.all(16),
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
+    );
+  }
+
+  /// Helper untuk membuat PageRouteBuilder dengan animasi slide + fade
+  /// [slideFrom]: arah datangnya halaman baru
+  ///   Offset(1, 0)  = dari kanan  → maju ke halaman berikutnya
+  ///   Offset(-1, 0) = dari kiri   → kembali ke halaman sebelumnya
+  PageRouteBuilder _slideRoute(Widget page, {Offset slideFrom = const Offset(1.0, 0.0)}) {
+    return PageRouteBuilder(
+      transitionDuration: Duration(milliseconds: 400),
+      reverseTransitionDuration: Duration(milliseconds: 400),
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final slide = Tween<Offset>(
+          begin: slideFrom,
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeInOutCubic,
+        ));
+
+        final fade = Tween<double>(
+          begin: 0.0,
+          end: 1.0,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeInOutCubic,
+        ));
+
+        return SlideTransition(
+          position: slide,
+          child: FadeTransition(
+            opacity: fade,
+            child: child,
+          ),
+        );
+      },
     );
   }
 
@@ -75,7 +115,27 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Widget inputField(controller, hint, {bool obscure = false}) {
+  void goToRegister() {
+    Navigator.pushReplacement(
+      context,
+      _slideRoute(RegisterPage()),
+    );
+  }
+
+  void goToForgotPassword() {
+    Navigator.push(
+      context,
+      _slideRoute(ForgotPasswordPage()),
+    );
+  }
+
+  Widget inputField(
+    controller,
+    hint, {
+    bool obscure = false,
+    bool showToggle = false,
+    VoidCallback? onToggle,
+  }) {
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -97,6 +157,15 @@ class _LoginPageState extends State<LoginPage> {
           hintStyle: TextStyle(color: Colors.grey),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          suffixIcon: showToggle
+              ? IconButton(
+                  icon: Icon(
+                    obscure ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey,
+                  ),
+                  onPressed: onToggle,
+                )
+              : null,
         ),
       ),
     );
@@ -151,14 +220,21 @@ class _LoginPageState extends State<LoginPage> {
                     SizedBox(height: 25),
 
                     inputField(email, "Enter Your Email"),
-                    inputField(password, "Enter Your Password", obscure: true),
+
+                    inputField(
+                      password,
+                      "Enter Your Password",
+                      obscure: _obscurePassword,
+                      showToggle: true,
+                      onToggle: () {
+                        setState(() => _obscurePassword = !_obscurePassword);
+                      },
+                    ),
 
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {
-                          Navigator.pushNamed(context, '/forgot');
-                        },
+                        onPressed: goToForgotPassword, // <-- pakai method baru
                         child: Text(
                           "Forgot Password?",
                           style: TextStyle(
@@ -199,9 +275,7 @@ class _LoginPageState extends State<LoginPage> {
                     SizedBox(height: 15),
 
                     TextButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/register');
-                      },
+                      onPressed: goToRegister,
                       child: RichText(
                         text: TextSpan(
                           text: "Don't Have a Account? ",
@@ -233,33 +307,21 @@ class WaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     Path path = Path();
-
     path.lineTo(0, size.height - 60);
-
     path.quadraticBezierTo(
-      size.width * 0.2,
-      size.height - 120,
-      size.width * 0.4,
-      size.height - 60,
+      size.width * 0.2, size.height - 120,
+      size.width * 0.4, size.height - 60,
     );
-
     path.quadraticBezierTo(
-      size.width * 0.6,
-      size.height - 180,
-      size.width * 0.75,
-      size.height - 70,
+      size.width * 0.6, size.height - 180,
+      size.width * 0.75, size.height - 70,
     );
-
     path.quadraticBezierTo(
-      size.width * 0.9,
-      size.height - 130,
-      size.width,
-      size.height - 60,
+      size.width * 0.9, size.height - 130,
+      size.width, size.height - 60,
     );
-
     path.lineTo(size.width, 0);
     path.close();
-
     return path;
   }
 

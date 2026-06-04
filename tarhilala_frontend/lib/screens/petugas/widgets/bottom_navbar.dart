@@ -13,22 +13,22 @@ class PetugasBottomNavbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 90, // Tinggi total untuk menampung tonjolan tombol
+      height: 90,
       color: Colors.transparent,
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          // 1. Background Navbar (Putih dengan Shadow)
+          // 1. Background Navbar
           Container(
             height: 65,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, -4),
                 ),
               ],
             ),
@@ -37,42 +37,45 @@ class PetugasBottomNavbar extends StatelessWidget {
               children: [
                 _navItem(Icons.home_rounded, "Beranda", currentIndex == 0, 0),
                 _navItem(Icons.assignment_rounded, "Transaksi", currentIndex == 1, 1),
-                
-                // Memberi ruang kosong di tengah agar tidak tertutup tombol Rute
-                const SizedBox(width: 60), 
-                
-                _navItem(Icons.receipt_long_rounded, "Setoran", currentIndex == 2, 2),
-                _navItem(Icons.person_rounded, "Akun", currentIndex == 3, 3),
+                const SizedBox(width: 60),
+                _navItem(Icons.receipt_long_rounded, "Setoran", currentIndex == 3, 3),
+                _navItem(Icons.person_rounded, "Akun", currentIndex == 4, 4),
               ],
             ),
           ),
 
-          // 2. Tombol Rute yang Menonjol Keluar
+          // 2. Tombol Rute yang Menonjol
           Positioned(
-            top: 0, // Mengatur agar posisi menjorok ke atas
+            top: 0,
             child: GestureDetector(
-              onTap: () => onTap(4), // Index 4 untuk Rute
+              onTap: () => onTap(2),
               child: Column(
                 children: [
-                  Container(
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
                     width: 58,
                     height: 58,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF154C94),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1E6BC6), Color(0xFF154C94)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF154C94).withOpacity(0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
+                          color: const Color(0xFF154C94).withOpacity(0.40),
+                          blurRadius: 14,
+                          offset: const Offset(0, 5),
                         ),
                       ],
-                      border: Border.all(color: Colors.white, width: 4),
+                      border: Border.all(color: Colors.white, width: 3.5),
                     ),
                     child: const Icon(
                       Icons.location_on_rounded,
                       color: Colors.white,
-                      size: 28,
+                      size: 26,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -81,7 +84,7 @@ class PetugasBottomNavbar extends StatelessWidget {
                     style: TextStyle(
                       color: Color(0xFF154C94),
                       fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -102,19 +105,33 @@ class PetugasBottomNavbar extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: active ? const Color(0xFF154C94) : Colors.grey.shade400,
-              size: 26,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              width: active ? 44 : 36,
+              height: active ? 32 : 28,
+              decoration: BoxDecoration(
+                color: active
+                    ? const Color(0xFF154C94).withOpacity(0.10)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: active ? const Color(0xFF154C94) : Colors.grey.shade400,
+                size: active ? 22 : 22,
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
               style: TextStyle(
                 color: active ? const Color(0xFF154C94) : Colors.grey.shade400,
                 fontSize: 10,
-                fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w400,
               ),
+              child: Text(label),
             ),
           ],
         ),

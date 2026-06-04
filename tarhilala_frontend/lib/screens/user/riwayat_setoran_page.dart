@@ -234,15 +234,27 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
         itemCount: _listRiwayatPenarikan.length,
         itemBuilder: (context, index) {
           var item = _listRiwayatPenarikan[index];
+          
+          // Ambil data dengan aman (memberi nilai default jika null)
+          String metode = item['metode'] ?? "N/A";
+          String nomor = item['nomor_tujuan'] ?? "-";
+          String nama = item['nama_penerima'] ?? "Tanpa Nama";
+          String status = item['status'] ?? "pending";
+          
+          // Pastikan jumlah tidak null sebelum di-parse
+          double jumlah = double.tryParse(item['jumlah']?.toString() ?? "0") ?? 0;
+
           return _cardTransaction(
-            title: "Tarik via ${item['metode']}",
-            sub: "${item['nomor_tujuan']} - ${item['nama_penerima']}",
-            amount: "Rp ${NumberFormat('#,###').format(double.parse(item['jumlah'].toString()))}",
-            status: item['status'],
+            title: "Tarik via $metode",
+            sub: "$nomor - $nama",
+            amount: "Rp ${NumberFormat('#,###').format(jumlah)}",
+            status: status,
             isIncoming: false,
             hasProof: item['bukti_transfer'] != null,
             onTap: () {
-              if (item['status'] == 'selesai') _showBuktiTransfer(item['bukti_transfer']);
+              if (status == 'selesai' && item['bukti_transfer'] != null) {
+                _showBuktiTransfer(item['bukti_transfer']);
+              }
             }
           );
         },

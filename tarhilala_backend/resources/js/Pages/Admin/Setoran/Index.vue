@@ -104,6 +104,38 @@ const formatDateTime = (dateTime) => {
     };
 };
 
+// Tambahkan ref isExporting di bagian atas bersama state lainnya
+const isExporting = ref(false);
+
+// Tambahkan fungsi ini untuk menangani download Excel
+const handleExportExcel = async () => {
+    isExporting.value = true;
+    try {
+        const response = await api.get('/setoran/export', {
+            responseType: 'blob' // Wajib untuk mendownload file binary
+        });
+
+        // Membuat URL sementara untuk file Excel
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Penamaan file yang akan diunduh
+        link.setAttribute('download', `Laporan_Penjemputan_${new Date().toLocaleDateString()}.xlsx`);
+
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        showSuccess("Laporan Excel berhasil diunduh!");
+    } catch (error) {
+        console.error("Gagal export excel:", error);
+        alert("Gagal mengunduh laporan Excel.");
+    } finally {
+        isExporting.value = false;
+    }
+};
+
 onMounted(() => { fetchRequests(); fetchJadwal(); });
 </script>
 
@@ -112,9 +144,17 @@ onMounted(() => { fetchRequests(); fetchJadwal(); });
         <!-- Header Page -->
         <div :class="{'blur-sm pointer-events-none': isAnyModalOpen}" class="transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 px-2 md:px-0">
             <h2 class="text-2xl md:text-4xl font-black text-gray-900 uppercase tracking-tight leading-none">Daftar <span class="text-[#41D3BD]">Penjemputan</span></h2>
-            <button class="w-full md:w-auto flex items-center justify-center space-x-3 bg-[#41D3BD] hover:opacity-80 text-black px-8 py-4 rounded-2xl md:rounded-[2rem] transition-all shadow-lg font-black uppercase text-xs md:text-sm tracking-widest">
-                <i class="fa-solid fa-file-export text-lg"></i>
-                <span>Ekspor Laporan</span>
+            <button
+                @click="handleExportExcel"
+                :disabled="isExporting"
+                class="w-full md:w-auto flex items-center justify-center space-x-3 bg-[#41D3BD] hover:opacity-80 text-black px-8 py-4 rounded-2xl md:rounded-[2rem] transition-all shadow-lg font-black uppercase text-xs md:text-sm tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <!-- Icon berubah jadi spinner saat loading -->
+                <i v-if="!isExporting" class="fa-solid fa-file-excel text-lg"></i>
+                <i v-else class="fa-solid fa-circle-notch animate-spin text-lg"></i>
+
+                <!-- Teks berubah saat loading -->
+                <span>{{ isExporting ? 'Memproses...' : 'Ekspor Laporan' }}</span>
             </button>
         </div>
 

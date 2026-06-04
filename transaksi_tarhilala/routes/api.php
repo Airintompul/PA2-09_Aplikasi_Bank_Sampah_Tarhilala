@@ -15,6 +15,7 @@ Route::prefix('admin')->group(function () {
     Route::get('/penarikan', [AdminWithdrawalController::class, 'index']);
     Route::put('/penarikan/{id}', [AdminWithdrawalController::class, 'update']);
     Route::get('/finance-stats', [AdminWithdrawalController::class, 'getFinanceStats']);
+    Route::get('/withdrawal-export', [AdminWithdrawalController::class, 'exportInternal']);
 });
 
 // Endpoint untuk dipanggil Main App (Port 8000)

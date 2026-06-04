@@ -9,6 +9,7 @@
         "php": "^8.2",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
+        "maatwebsite/excel": "^3.1",
         "laravel/tinker": "^2.10.1"
     },
     "require-dev": {
@@ -80,6 +81,14 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
+        },
+        "audit": {
+            "ignore": [
+                "PKSA-y6py-qpv1-h52p",
+                "PKSA-v5yj-8nmz-sk2q",
+                "PKSA-ft77-7h5f-p3r6",
+                "PKSA-b14r-zh1d-vdrc"
+            ]
         }
     },
     "minimum-stability": "stable",

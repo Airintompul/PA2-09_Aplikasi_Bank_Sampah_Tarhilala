@@ -1,12 +1,13 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
 
 // --- STATE DATA ---
 const rewards = ref([]);
 const isLoading = ref(true);
 const successMessage = ref('');
+const errorMessage = ref(''); // State untuk notifikasi error/warning
 
 // State Modal
 const openAdd = ref(false);
@@ -19,8 +20,16 @@ const isAnyModalOpen = computed(() => {
 });
 
 // State Form
-const currReward = ref({ id: '', nama_reward: '', poin_dibutuhkan: '', stok: '', deskripsi: '', gambar: null });
+const currReward = ref({ id: '', nama_reward: '', poin_dibutuhkan: 0, stok: 0, deskripsi: '', gambar: null });
 const imagePreview = ref(null);
+
+// --- VALIDASI AUTO-SNAP (Mencegah Ketikan Manual Angka Minus) ---
+watch(() => currReward.value.stok, (newVal) => {
+    if (newVal < 0) currReward.value.stok = 0;
+});
+watch(() => currReward.value.poin_dibutuhkan, (newVal) => {
+    if (newVal < 0) currReward.value.poin_dibutuhkan = 0;
+});
 
 // Konfigurasi Header Token
 const getHeaders = () => ({
@@ -50,7 +59,26 @@ const onFileChange = (e) => {
     }
 };
 
+// --- HELPER NOTIFIKASI (KONSISTEN) ---
+const showSuccess = (msg) => {
+    successMessage.value = msg;
+    errorMessage.value = '';
+    setTimeout(() => successMessage.value = '', 4000);
+};
+
+const showError = (msg) => {
+    errorMessage.value = msg;
+    successMessage.value = '';
+    setTimeout(() => errorMessage.value = '', 4000);
+};
+
 const handleStore = async () => {
+    // VALIDASI WAJIB ISI (NAMA & DESKRIPSI)
+    if (!currReward.value.nama_reward || !currReward.value.deskripsi || currReward.value.deskripsi.trim() === "") {
+        showError("Please fill out this field!");
+        return;
+    }
+
     const formData = new FormData();
     formData.append('nama_reward', currReward.value.nama_reward);
     formData.append('poin_dibutuhkan', currReward.value.poin_dibutuhkan);
@@ -66,11 +94,17 @@ const handleStore = async () => {
         showSuccess("Reward Berhasil Ditambahkan!");
         fetchRewards();
     } catch (error) {
-        alert("Gagal menyimpan data");
+        showError(error.response?.data?.message || "Gagal menyimpan data");
     }
 };
 
 const handleUpdate = async () => {
+    // VALIDASI WAJIB ISI (NAMA & DESKRIPSI)
+    if (!currReward.value.nama_reward || !currReward.value.deskripsi || currReward.value.deskripsi.trim() === "") {
+        showError("Please fill out this field!");
+        return;
+    }
+
     isLoading.value = true;
     try {
         const formData = new FormData();
@@ -91,7 +125,7 @@ const handleUpdate = async () => {
         fetchRewards();
         closeModals();
     } catch (error) {
-        alert("Gagal memperbarui data");
+        showError("Gagal memperbarui data");
     } finally {
         isLoading.value = false;
     }
@@ -106,7 +140,7 @@ const handleDelete = async () => {
         showSuccess("Reward Berhasil Dihapus!");
         fetchRewards();
     } catch (error) {
-        alert("Gagal menghapus data");
+        showError("Gagal menghapus data");
     }
 };
 
@@ -119,13 +153,8 @@ const openEditModal = (reward) => {
 const closeModals = () => {
     openAdd.value = false;
     openEdit.value = false;
-    currReward.value = { id: '', nama_reward: '', poin_dibutuhkan: '', stok: '', deskripsi: '', gambar: null };
+    currReward.value = { id: '', nama_reward: '', poin_dibutuhkan: 0, stok: 0, deskripsi: '', gambar: null };
     imagePreview.value = null;
-};
-
-const showSuccess = (msg) => {
-    successMessage.value = msg;
-    setTimeout(() => successMessage.value = '', 3000);
 };
 
 onMounted(() => fetchRewards());
@@ -134,7 +163,7 @@ onMounted(() => fetchRewards());
 <template>
     <AdminLayout :hideNavbar="isAnyModalOpen">
 
-        <!-- AREA BACKGROUND: Blur saat modal buka -->
+        <!-- AREA BACKGROUND: Konten utama dengan efek Blur -->
         <div :class="{'blur-md opacity-50 pointer-events-none transition-all duration-500': isAnyModalOpen}">
 
             <!-- Header Page -->
@@ -153,10 +182,20 @@ onMounted(() => fetchRewards());
                 </button>
             </div>
 
-            <!-- Alert Berhasil -->
-            <div v-if="successMessage" class="mx-2 md:mx-0 mb-6 p-4 md:p-5 bg-black text-[#41D3BD] rounded-2xl md:rounded-3xl font-black shadow-xl flex items-center border-l-8 border-[#41D3BD] text-xs md:text-sm">
-                <i class="fa-solid fa-circle-check text-xl md:text-2xl mr-4"></i> {{ successMessage }}
-            </div>
+            <!-- NOTIFIKASI VALIDASI: POSISI INLINE DI BAWAH DESKRIPSI (KONSISTEN) -->
+            <Transition name="fade">
+                <div v-if="successMessage || errorMessage"
+                     :class="successMessage ? 'bg-black text-[#41D3BD] border-[#41D3BD]' : 'bg-black text-orange-500 border-orange-500'"
+                     class="mx-2 md:mx-0 mb-8 p-4 md:p-5 rounded-2xl md:rounded-3xl font-black shadow-xl flex items-center border-l-8 text-xs md:text-sm transition-all">
+
+                    <!-- Ikon Dinamis: Teal Check atau Orange Exclamation -->
+                    <i :class="successMessage ? 'fa-solid fa-circle-check text-[#41D3BD]' : 'fa-solid fa-circle-exclamation text-orange-500'" class="text-xl md:text-2xl mr-4"></i>
+
+                    <div class="flex flex-col text-left">
+                        <span class="uppercase tracking-tight text-sm md:text-base leading-none">{{ successMessage || errorMessage }}</span>
+                    </div>
+                </div>
+            </Transition>
 
             <!-- 1. VIEW DESKTOP: TABEL -->
             <div class="hidden lg:block bg-white rounded-[2.5rem] shadow-sm border border-gray-100 relative overflow-hidden transition-all duration-300">
@@ -214,7 +253,7 @@ onMounted(() => fetchRewards());
                 </table>
             </div>
 
-            <!-- 2. VIEW MOBILE: CARDS -->
+            <!-- 2. VIEW MOBILE: CARDS (UTUH TIDAK DIPANGKAS) -->
             <div class="lg:hidden space-y-4 px-2 pb-10">
                 <div v-for="reward in rewards" :key="reward.id" class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
                     <div class="flex items-center space-x-4">
@@ -243,6 +282,7 @@ onMounted(() => fetchRewards());
                         </div>
                     </div>
                 </div>
+                <div v-if="isLoading" class="text-center py-10 font-black text-gray-300 uppercase text-[10px]">Syncing Inventory...</div>
             </div>
         </div>
 
@@ -261,16 +301,16 @@ onMounted(() => fetchRewards());
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Poin Harga</label>
-                            <input v-model="currReward.poin_dibutuhkan" type="number" required class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-black text-blue-600 text-lg tracking-tighter">
+                            <input v-model="currReward.poin_dibutuhkan" type="number" min="0" required class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-black text-blue-600 text-lg tracking-tighter">
                         </div>
                         <div>
                             <label class="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Jumlah Stok</label>
-                            <input v-model="currReward.stok" type="number" required class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-black text-slate-800 text-lg tracking-tighter">
+                            <input v-model="currReward.stok" type="number" min="0" required class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-black text-slate-800 text-lg tracking-tighter">
                         </div>
                     </div>
                     <div>
                         <label class="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Deskripsi Detail</label>
-                        <textarea v-model="currReward.deskripsi" rows="3" class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700 text-sm leading-relaxed"></textarea>
+                        <textarea v-model="currReward.deskripsi" rows="3" required class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700 text-sm leading-relaxed"></textarea>
                     </div>
                     <div>
                         <label class="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Unggah Foto Barang</label>
@@ -294,7 +334,7 @@ onMounted(() => fetchRewards());
 
         <!-- MODAL DELETE -->
         <div v-if="openDelete" class="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-            <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-8 text-center shadow-2xl border-b-8 border-gray-900">
+            <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-8 text-center shadow-2xl border-b-8 border-gray-900 transition-all">
                 <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner">
                     <i class="fa-solid fa-gift"></i>
                 </div>

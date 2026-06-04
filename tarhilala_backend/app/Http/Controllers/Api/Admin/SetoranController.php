@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Exports\SetoranExport;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Http\Controllers\Controller;
 // --- IMPORT MODELS ---
 use App\Models\Setoran;
@@ -252,4 +254,8 @@ class SetoranController extends Controller
         if (!$log) return response()->json(['status' => 'error'], 404);
         return response()->json(['status' => 'success', 'data' => ['lat' => (float) $log->latitude, 'lng' => (float) $log->longitude]], 200);
     }
+    public function exportExcel()
+{
+    return Excel::download(new SetoranExport, 'Laporan_Penjemputan.xlsx');
+}
 }

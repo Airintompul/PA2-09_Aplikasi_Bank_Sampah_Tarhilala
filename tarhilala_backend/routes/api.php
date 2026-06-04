@@ -84,7 +84,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/notifications', [NotificationController::class, 'index']);
         Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
-
     });
 
     // Route untuk Petugas/Driver
@@ -155,6 +154,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/notifications', [AdminController::class, 'getNotifications']);
         Route::put('/notifications/{id}/read', [AdminController::class, 'markAsRead']);
+
+        Route::get('/penarikan/export', [App\Http\Controllers\Api\Nasabah\WithdrawalController::class, 'exportForAdmin']);
+
+        Route::get('/setoran/export', [SetoranController::class, 'exportExcel']);
     });
 
     Route::middleware('auth:sanctum')->prefix('admin')->group(function () {

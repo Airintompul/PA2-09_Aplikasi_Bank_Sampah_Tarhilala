@@ -7,11 +7,15 @@ import api from '@/api';
 const customers = ref([]);
 const isLoading = ref(true);
 const successMessage = ref('');
+const errorMessage = ref(''); // State untuk notifikasi warning/error
 
 // State Modals
 const openAdd = ref(false);
 const openEdit = ref(false);
 const openDelete = ref(false);
+
+// STATE SHOW/HIDE PASSWORD
+const showPassword = ref(false);
 
 // LOGIC: Deteksi jika ada modal yang aktif
 const isAnyModalOpen = computed(() => {
@@ -21,7 +25,7 @@ const isAnyModalOpen = computed(() => {
 // State Form
 const currUser = ref({ id: '', nama: '', email: '', nomor_telepon: '', password: '' });
 
-// --- LOGIC: AMBIL DATA ---
+// --- LOGIC API: FETCH ---
 const fetchCustomers = async () => {
     try {
         const response = await api.get('/customers');
@@ -33,27 +37,52 @@ const fetchCustomers = async () => {
     }
 };
 
+// --- HELPER NOTIFIKASI (KONSISTEN) ---
+const showSuccess = (msg) => {
+    successMessage.value = msg;
+    errorMessage.value = '';
+    setTimeout(() => successMessage.value = '', 4000);
+};
+
+const showError = (msg) => {
+    errorMessage.value = msg;
+    successMessage.value = '';
+    setTimeout(() => errorMessage.value = '', 4000);
+};
+
 // --- LOGIC: SIMPAN NASABAH ---
 const handleStore = async () => {
+    // VALIDASI WAJIB ISI NOMOR TELEPON
+    if (!currUser.value.nomor_telepon || currUser.value.nomor_telepon.trim() === "") {
+        showError("Please fill out this field (Phone Number)");
+        return;
+    }
+
     try {
         await api.post('/customers', currUser.value);
         closeModals();
         showSuccess("Nasabah Berhasil Ditambahkan!");
         fetchCustomers();
     } catch (error) {
-        alert(error.response?.data?.message || "Gagal menyimpan nasabah");
+        showError(error.response?.data?.message || "Gagal menyimpan nasabah");
     }
 };
 
 // --- LOGIC: UPDATE ---
 const handleUpdate = async () => {
+    // VALIDASI WAJIB ISI NOMOR TELEPON
+    if (!currUser.value.nomor_telepon || currUser.value.nomor_telepon.trim() === "") {
+        showError("Please fill out this field (Phone Number)");
+        return;
+    }
+
     try {
         await api.put(`/customers/${currUser.value.id}`, currUser.value);
         closeModals();
         showSuccess("Data Nasabah Berhasil Diperbarui!");
         fetchCustomers();
     } catch (error) {
-        alert("Gagal memperbarui data nasabah");
+        showError("Gagal memperbarui data nasabah");
     }
 };
 
@@ -65,7 +94,7 @@ const handleDelete = async () => {
         showSuccess("Nasabah Berhasil Dihapus!");
         fetchCustomers();
     } catch (error) {
-        alert("Gagal menghapus data");
+        showError("Gagal menghapus data");
     }
 };
 
@@ -78,12 +107,8 @@ const openEditModal = (user) => {
 const closeModals = () => {
     openAdd.value = false;
     openEdit.value = false;
+    showPassword.value = false; // Reset status mata saat tutup modal
     currUser.value = { id: '', nama: '', email: '', nomor_telepon: '', password: '' };
-};
-
-const showSuccess = (msg) => {
-    successMessage.value = msg;
-    setTimeout(() => successMessage.value = '', 3000);
 };
 
 const formatDate = (dateString) => {
@@ -98,10 +123,10 @@ onMounted(() => fetchCustomers());
 <template>
     <AdminLayout :hideNavbar="isAnyModalOpen">
 
-        <!-- AREA BACKGROUND: Konten utama dengan efek Blur saat CRUD -->
+        <!-- AREA BACKGROUND -->
         <div :class="{'blur-md opacity-50 pointer-events-none transition-all duration-500': isAnyModalOpen}">
 
-            <!-- Header Section: Disamakan dengan Setoran -->
+            <!-- Header Section -->
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 px-2 md:px-0">
                 <div>
                     <h2 class="text-2xl md:text-4xl font-black text-gray-900 uppercase tracking-tight leading-none">
@@ -117,10 +142,19 @@ onMounted(() => fetchCustomers());
                 </button>
             </div>
 
-            <!-- Alert Berhasil -->
-            <div v-if="successMessage" class="mx-2 md:mx-0 mb-6 p-4 md:p-5 bg-black text-[#41D3BD] rounded-2xl md:rounded-3xl font-black shadow-xl flex items-center border-l-8 border-[#41D3BD] text-xs md:text-sm">
-                <i class="fa-solid fa-circle-check text-xl md:text-2xl mr-4"></i> {{ successMessage }}
-            </div>
+            <!-- NOTIFIKASI VALIDASI: POSISI INLINE DI BAWAH DESKRIPSI (KONSISTEN) -->
+            <Transition name="fade">
+                <div v-if="successMessage || errorMessage"
+                     :class="successMessage ? 'bg-black text-[#41D3BD] border-[#41D3BD]' : 'bg-black text-orange-500 border-orange-500'"
+                     class="mx-2 md:mx-0 mb-8 p-4 md:p-5 rounded-2xl md:rounded-3xl font-black shadow-xl flex items-center border-l-8 text-xs md:text-sm transition-all">
+
+                    <i :class="successMessage ? 'fa-solid fa-circle-check text-[#41D3BD]' : 'fa-solid fa-circle-exclamation text-orange-500'" class="text-xl md:text-2xl mr-4"></i>
+
+                    <div class="flex flex-col text-left">
+                        <span class="uppercase tracking-tight text-sm md:text-base leading-none">{{ successMessage || errorMessage }}</span>
+                    </div>
+                </div>
+            </Transition>
 
             <!-- 1. VIEW DESKTOP: TABEL -->
             <div class="hidden lg:block bg-white rounded-[2.5rem] shadow-sm border border-gray-100 relative overflow-hidden transition-all duration-300">
@@ -193,8 +227,8 @@ onMounted(() => fetchCustomers());
             </div>
         </div>
 
-        <!-- MODAL ADD/EDIT: Diperkecil (max-w-xl) & Gaya Font Target -->
-        <div v-if="openAdd || openEdit" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-8">
+        <!-- MODAL ADD/EDIT -->
+        <div v-if="openAdd || openEdit" class="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-8">
             <div class="bg-white rounded-[2.5rem] md:rounded-[3rem] max-w-xl w-full p-6 md:p-10 shadow-2xl relative overflow-y-auto max-h-[92vh] border-[6px] border-slate-900 transition-all duration-300">
                 <h3 class="text-xl md:text-2xl font-black text-gray-800 uppercase tracking-tighter mb-8 text-center">
                     {{ openAdd ? 'Add New Customer' : 'Update Customer' }}
@@ -212,14 +246,30 @@ onMounted(() => fetchCustomers());
                         </div>
                         <div>
                             <label class="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">No. WhatsApp</label>
-                            <input v-model="currUser.nomor_telepon" type="text" class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700 text-sm tracking-tighter">
+                            <input v-model="currUser.nomor_telepon" type="text" required placeholder="Wajib diisi..." class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700 text-sm tracking-tighter">
                         </div>
                     </div>
+
+                    <!-- INPUT PASSWORD DENGAN SHOW/HIDE (IKON MATA) -->
                     <div>
                         <label class="text-[9px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">
                             Akses Password {{ openEdit ? '(Kosongkan jika tidak diubah)' : '' }}
                         </label>
-                        <input v-model="currUser.password" type="password" :required="openAdd" class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700 text-sm">
+                        <div class="relative">
+                            <input
+                                v-model="currUser.password"
+                                :type="showPassword ? 'text' : 'password'"
+                                :required="openAdd"
+                                class="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-[#41D3BD] outline-none font-bold text-gray-700 text-sm"
+                            >
+                            <button
+                                type="button"
+                                @click="showPassword = !showPassword"
+                                class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#41D3BD] transition-colors"
+                            >
+                                <i class="fa-solid" :class="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="flex flex-col-reverse md:flex-row justify-end gap-3 pt-6 border-t border-gray-50">
@@ -233,8 +283,8 @@ onMounted(() => fetchCustomers());
         </div>
 
         <!-- MODAL DELETE -->
-        <div v-if="openDelete" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
-            <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-8 text-center shadow-2xl border-b-8 border-gray-900">
+        <div v-if="openDelete" class="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+            <div class="bg-white rounded-[2.5rem] max-w-sm w-full p-8 text-center shadow-2xl border-b-8 border-gray-900 transition-all">
                 <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner">
                     <i class="fa-solid fa-user-minus"></i>
                 </div>

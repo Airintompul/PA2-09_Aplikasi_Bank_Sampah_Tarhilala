@@ -14,17 +14,25 @@ class LibraryController extends Controller
      * Menampilkan daftar konten edukasi
      */
     public function index()
-    {
-        $contents = KontenEdukasi::with('penulis:id,nama')
-            ->orderBy('created_at', 'desc')
-            ->get();
+{
+    $contents = KontenEdukasi::with('penulis:id,nama')
+        ->orderBy('created_at', 'desc')
+        ->get();
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Konten edukasi berhasil dimuat',
-            'data' => $contents
-        ], 200);
-    }
+    // Transformasi data agar field thumbnail berisi URL lengkap
+    $contents->transform(function ($item) {
+        if ($item->thumbnail) {
+            $item->thumbnail = url($item->thumbnail);
+        }
+        return $item;
+    });
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Konten edukasi berhasil dimuat',
+        'data' => $contents
+    ], 200);
+}
 
     /**
      * Menyimpan konten baru

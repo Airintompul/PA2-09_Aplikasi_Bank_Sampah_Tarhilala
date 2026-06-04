@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Exports\PenarikanExport;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\{Penarikan, Wallet, WalletTransaction};
@@ -91,4 +93,23 @@ class AdminWithdrawalController extends Controller {
         ]
     ], 200);
 }
+
+    public function exportInternal()
+    {
+        \Log::info('EXPORT DIPANGGIL');
+
+        try {
+            return Excel::download(
+                new PenarikanExport,
+                'laporan-keuangan.xlsx'
+            );
+        } catch (\Exception $e) {
+
+            \Log::error($e->getMessage());
+
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

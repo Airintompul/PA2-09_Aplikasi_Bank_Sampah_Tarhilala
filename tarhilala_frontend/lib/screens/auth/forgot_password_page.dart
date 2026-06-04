@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../login/login_page.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   @override
@@ -57,7 +58,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
       if (response['success'] == true) {
         showCustomSnackBar("OTP berhasil dikirim", isError: false);
-        
+
         Future.delayed(Duration(milliseconds: 1500), () {
           Navigator.pushNamed(
             context,
@@ -73,11 +74,47 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         message = response['errors'].toString();
       }
       showCustomSnackBar(message);
-      
     } catch (e) {
       setState(() => loading = false);
       showCustomSnackBar("Email tidak terdaftar");
     }
+  }
+
+  /// Kembali ke LoginPage dengan slide dari kiri (kebalikan dari saat masuk)
+  void goBackToLogin() {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        transitionDuration: Duration(milliseconds: 400),
+        reverseTransitionDuration: Duration(milliseconds: 400),
+        pageBuilder: (context, animation, secondaryAnimation) => LoginPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final slide = Tween<Offset>(
+            begin: Offset(-1.0, 0.0), // datang dari kiri = efek "kembali"
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          ));
+
+          final fade = Tween<double>(
+            begin: 0.0,
+            end: 1.0,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          ));
+
+          return SlideTransition(
+            position: slide,
+            child: FadeTransition(
+              opacity: fade,
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget inputField(controller, hint) {
@@ -112,7 +149,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Color(0xFFBFC9D6),
-
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -190,9 +226,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     SizedBox(height: 15),
 
                     TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
+                      onPressed: goBackToLogin, // <-- pakai method baru
                       child: Text(
                         "Back to Login",
                         style: TextStyle(
@@ -201,7 +235,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         ),
                       ),
                     ),
-
                   ],
                 ),
               ),

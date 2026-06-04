@@ -122,8 +122,12 @@ class _JualSampahPageState extends State<JualSampahPage> {
   }
 
   Future<void> _submitRequest() async {
-    if (_image == null || _selectedItems.isEmpty) {
-      _showSnack("Lengkapi foto dan jenis sampah!");
+    bool invalidItem = _selectedItems.any((e) =>
+        e['id'] == null ||
+        (double.tryParse(e['berat'].text) ?? 0) <= 0);
+
+    if (invalidItem) {
+      _showSnack("Pastikan semua item valid (jenis & berat)");
       return;
     }
 
@@ -151,7 +155,9 @@ class _JualSampahPageState extends State<JualSampahPage> {
       List detailPayload = _selectedItems.map((item) {
         double b = double.tryParse(item['berat'].text) ?? 0;
         totalBerat += b;
-        return {"id": item['id'], "berat": b};
+          if (item['id'] != null && b > 0) {
+            return {"id": item['id'], "berat": b};
+          }
       }).toList();
 
       request.fields['items'] = jsonEncode(detailPayload);

@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 class MessageController extends Controller
 {
-    /**
+    /*
      * Menampilkan daftar chat room (Daftar Inbox)
      */
     public function index()

@@ -26,8 +26,12 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
   Future loadBerita() async {
     final data = await NewsService.getBerita();
     setState(() {
-      beritaAll = data;
-      beritaFiltered = data;
+      // TAMBAHKAN FILTER .where DI SINI
+      beritaAll = data.where((item) => 
+        item['status'].toString().toLowerCase() == 'published'
+      ).toList();
+      
+      beritaFiltered = beritaAll;
       isLoading = false;
     });
   }
@@ -45,6 +49,15 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
             .toList();
       }
     });
+  }
+
+  // --- LOGIC HELPER URL GAMBAR (KONSISTEN) ---
+  String getImageUrl(Map item) {
+    String path = item['thumbnail'] ?? item['gambar'] ?? '';
+    if (path.isEmpty) return "";
+    if (path.startsWith('http')) return path;
+    // Sesuaikan dengan letak assets di server Anda (menghilangkan kata 'storage')
+    return "http://13.250.117.185/$path";
   }
 
   @override
@@ -67,7 +80,7 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
                 children: [
                   const TopNavbar(),
 
-                  /// --- HEADER: TOMBOL BACK & JUDUL ---
+                  /// --- HEADER ---
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
                     child: Row(
@@ -104,7 +117,6 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
                     ),
                   ),
 
-                  /// --- SEARCH BAR RAPI ---
                   _buildSearchBarSection(),
 
                   const SizedBox(height: 10),
@@ -181,7 +193,7 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
   }
 
   Widget _buildBeritaUnggulan(Map item) {
-    String rawDate = item['created_at'] ?? item['tanggal'] ?? DateTime.now().toString();
+    String rawDate = item['created_at'] ?? DateTime.now().toString();
     String rilis = timeago.format(DateTime.parse(rawDate), locale: 'id');
 
     return GestureDetector(
@@ -189,8 +201,9 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: const Color(0xFFB8CCE4).withOpacity(0.5),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,11 +213,20 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                   child: Image.network(
-                    "http://13.250.117.185/storage/${item['gambar'] ?? item['thumbnail']}",
+                    getImageUrl(item), // MENGGUNAKAN HELPER URL
                     height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(height: 200, color: const Color(0xFF154C8C)),
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return Container(height: 200, color: Colors.grey[100], child: const Center(child: CircularProgressIndicator()));
+                    },
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 200, 
+                      width: double.infinity,
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.broken_image, color: Colors.grey, size: 50),
+                    ),
                   ),
                 ),
                 Positioned(
@@ -252,7 +274,7 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
   }
 
   Widget _buildBeritaTerbaruItem(Map item) {
-    String rawDate = item['created_at'] ?? item['tanggal'] ?? DateTime.now().toString();
+    String rawDate = item['created_at'] ?? DateTime.now().toString();
     String rilis = timeago.format(DateTime.parse(rawDate), locale: 'id');
 
     return GestureDetector(
@@ -276,10 +298,14 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.network(
-                "http://13.250.117.185/storage/${item['gambar'] ?? item['thumbnail']}",
+                getImageUrl(item), // MENGGUNAKAN HELPER URL
                 width: 95, height: 95,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(width: 95, height: 95, color: Colors.grey.shade100),
+                errorBuilder: (_, __, ___) => Container(
+                  width: 95, height: 95, 
+                  color: Colors.grey.shade100,
+                  child: const Icon(Icons.broken_image, color: Colors.grey),
+                ),
               ),
             ),
             const SizedBox(width: 15),

@@ -9,47 +9,96 @@ use Illuminate\Support\Facades\DB;
 
 class InternalFinanceController extends Controller {
 
-    /**
-     * Menambahkan Saldo atau Poin ke Wallet Nasabah (Dinamis)
-     */
-    public function addBalance(Request $request) {
-        if($request->header('X-Internal-Key') !== env('INTERNAL_API_KEY')) {
-            return response()->json(['message' => 'Unauthorized Access'], 403);
+public function addBalance(Request $request)
+{
+    if ($request->header('X-Internal-Key') !== env('INTERNAL_API_KEY')) {
+        return response()->json(['message' => 'Unauthorized Access'], 403);
+    }
+
+    return DB::transaction(function () use ($request) {
+
+        $request->validate([
+            'user_id' => 'required',
+            'amount' => 'required|numeric|min:1',
+            'metode_pembayaran' => 'required',
+            'setoran_id' => 'required'
+        ]);
+
+        $metode = strtolower($request->metode_pembayaran);
+
+        if (!in_array($metode, ['saldo', 'cash', 'transfer'])) {
+            return response()->json(['message' => 'Metode tidak valid'], 422);
         }
 
-        return DB::transaction(function() use ($request) {
-            $type = $request->account_type ?? 'saldo';
+        // =========================
+        // ANTI DOUBLE PROCESS
+        // =========================
+        $exists = WalletTransaction::where('reference_table', 'setoran')
+            ->where('reference_data_id', $request->setoran_id)
+            ->exists();
 
-            // Catat ke Tabel Transaksi Utama jika itu SALDO (UANG)
-            if ($type == 'saldo') {
-                Transaksi::create([
-                    'user_id'           => $request->user_id,
-                    'reference_table'   => 'setoran',
-                    'reference_data_id' => $request->setoran_id,
-                    'jumlah'            => $request->amount,
-                    'metode_pembayaran' => $request->metode_pembayaran ?? 'saldo',
-                    'status'            => ($request->metode_pembayaran == 'cash') ? 'berhasil' : 'menunggu',
-                ]);
-            }
+        if ($exists) {
+            return response()->json(['message' => 'Transaction already processed'], 409);
+        }
+
+        // =========================
+        // TRANSAKSI UTAMA
+        // =========================
+        Transaksi::create([
+            'user_id' => $request->user_id,
+            'reference_table' => 'setoran',
+            'reference_data_id' => $request->setoran_id,
+            'jumlah' => $request->amount,
+            'metode_pembayaran' => $metode,
+            'status' => 'berhasil',
+        ]);
+
+        // =========================
+        // HANYA SALDO MASUK WALLET
+        // =========================
+        if ($metode === 'saldo') {
 
             $wallet = Wallet::firstOrCreate(
-                ['user_id' => $request->user_id, 'account_type' => $type]
+                [
+                    'user_id' => $request->user_id,
+                    'account_type' => 'saldo'
+                ],
+                ['current_balance' => 0]
             );
 
             $wallet->increment('current_balance', $request->amount);
 
             WalletTransaction::create([
-                'account_id'        => $wallet->id,
-                'amount'            => $request->amount,
-                'direction'         => 'credit',
-                'reference_table'   => 'setoran',
+                'account_id' => $wallet->id,
+                'amount' => $request->amount,
+                'direction' => 'credit',
+                'reference_table' => 'setoran',
                 'reference_data_id' => $request->setoran_id,
-                'description'       => "Penambahan " . ucfirst($type) . " dari setoran #" . $request->setoran_id
+                'description' => 'Setoran masuk ke saldo internal'
             ]);
+        }
 
-            return response()->json(['status' => 'success', 'message' => ucfirst($type) . ' updated']);
-        });
-    }
+        // =========================
+        // CASH & TRANSFER: HANYA LOG (NO WALLET)
+        // =========================
+        if ($metode === 'cash' || $metode === 'transfer') {
+
+            WalletTransaction::create([
+                'account_id' => null,
+                'amount' => $request->amount,
+                'direction' => 'credit',
+                'reference_table' => 'setoran',
+                'reference_data_id' => $request->setoran_id,
+                'description' => "Pembayaran $metode (tidak masuk wallet)"
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Transaksi berhasil diproses'
+        ]);
+    });
+}
 
     /**
      * Mengambil Jumlah Saldo/Poin Aktif

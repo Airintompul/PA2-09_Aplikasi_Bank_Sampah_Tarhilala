@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../login/login_page.dart';
 
 class RegisterPage extends StatefulWidget {
   @override
@@ -7,13 +8,13 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-
   TextEditingController nama = TextEditingController();
   TextEditingController email = TextEditingController();
   TextEditingController telepon = TextEditingController();
   TextEditingController password = TextEditingController();
 
   bool loading = false;
+  bool _obscurePassword = true;
 
   void showCustomSnackBar(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -52,27 +53,27 @@ class _RegisterPageState extends State<RegisterPage> {
       showCustomSnackBar("Nama wajib diisi");
       return;
     }
-    
+
     if (email.text.isEmpty) {
       showCustomSnackBar("Email wajib diisi");
       return;
     }
-    
+
     if (!email.text.contains("@")) {
       showCustomSnackBar("Format email tidak valid");
       return;
     }
-    
+
     if (telepon.text.isEmpty) {
       showCustomSnackBar("Nomor telepon wajib diisi");
       return;
     }
-    
+
     if (password.text.isEmpty) {
       showCustomSnackBar("Password wajib diisi");
       return;
     }
-    
+
     if (password.text.length < 6) {
       showCustomSnackBar("Password minimal 6 karakter");
       return;
@@ -91,12 +92,12 @@ class _RegisterPageState extends State<RegisterPage> {
 
     if (response['data'] != null) {
       showCustomSnackBar(
-        "Register berhasil, silakan login", 
-        isError: false
+        "Register berhasil, silakan login",
+        isError: false,
       );
 
       Future.delayed(Duration(milliseconds: 1500), () {
-        Navigator.pushReplacementNamed(context, '/login');
+        goToLogin(); // <-- pakai method animasi
       });
     } else {
       String message = response['message'] ?? 'Register gagal';
@@ -107,7 +108,49 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  Widget inputField(controller, hint, {bool obscure = false}) {
+  void goToLogin() {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        transitionDuration: Duration(milliseconds: 400),
+        reverseTransitionDuration: Duration(milliseconds: 400),
+        pageBuilder: (context, animation, secondaryAnimation) => LoginPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final slide = Tween<Offset>(
+            begin: Offset(-1.0, 0.0), // masuk dari kiri
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          ));
+
+          final fade = Tween<double>(
+            begin: 0.0,
+            end: 1.0,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          ));
+
+          return SlideTransition(
+            position: slide,
+            child: FadeTransition(
+              opacity: fade,
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget inputField(
+    controller,
+    hint, {
+    bool obscure = false,
+    bool showToggle = false,
+    VoidCallback? onToggle,
+  }) {
     return Container(
       margin: EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -128,8 +171,16 @@ class _RegisterPageState extends State<RegisterPage> {
           hintText: hint,
           hintStyle: TextStyle(color: Colors.grey),
           border: InputBorder.none,
-          contentPadding:
-              EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          contentPadding: EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          suffixIcon: showToggle
+              ? IconButton(
+                  icon: Icon(
+                    obscure ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey,
+                  ),
+                  onPressed: onToggle,
+                )
+              : null,
         ),
       ),
     );
@@ -137,14 +188,12 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: Color(0xFFBFC9D6),
 
       body: SingleChildScrollView(
         child: Column(
           children: [
-
             ClipPath(
               clipper: WaveClipper(),
               child: Container(
@@ -159,7 +208,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 padding: EdgeInsets.symmetric(horizontal: 25),
                 child: Column(
                   children: [
-
                     Transform.translate(
                       offset: Offset(0, 60),
                       child: Image.asset(
@@ -193,7 +241,16 @@ class _RegisterPageState extends State<RegisterPage> {
                     inputField(nama, "Enter Your Name"),
                     inputField(email, "Enter Your Email"),
                     inputField(telepon, "Enter Your Phone Number"),
-                    inputField(password, "Enter Your Password", obscure: true),
+
+                    inputField(
+                      password,
+                      "Enter Your Password",
+                      obscure: _obscurePassword,
+                      showToggle: true,
+                      onToggle: () {
+                        setState(() => _obscurePassword = !_obscurePassword);
+                      },
+                    ),
 
                     SizedBox(height: 10),
 
@@ -225,9 +282,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     SizedBox(height: 15),
 
                     TextButton(
-                      onPressed: () {
-                        Navigator.pushReplacementNamed(context, '/login');
-                      },
+                      onPressed: goToLogin, // <-- ubah ke method ini
                       child: RichText(
                         text: TextSpan(
                           text: "Already Have an Account? ",
@@ -244,12 +299,10 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                       ),
                     ),
-
                   ],
                 ),
               ),
-            )
-
+            ),
           ],
         ),
       ),
@@ -257,38 +310,25 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 }
 
-
 class WaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     Path path = Path();
-
     path.lineTo(0, size.height - 60);
-
     path.quadraticBezierTo(
-      size.width * 0.2,
-      size.height - 120,
-      size.width * 0.4,
-      size.height - 60,
+      size.width * 0.2, size.height - 120,
+      size.width * 0.4, size.height - 60,
     );
-
     path.quadraticBezierTo(
-      size.width * 0.6,
-      size.height - 180, 
-      size.width * 0.75,
-      size.height - 70,
+      size.width * 0.6, size.height - 180,
+      size.width * 0.75, size.height - 70,
     );
-
     path.quadraticBezierTo(
-      size.width * 0.9,
-      size.height - 130,
-      size.width,
-      size.height - 60,
+      size.width * 0.9, size.height - 130,
+      size.width, size.height - 60,
     );
-
     path.lineTo(size.width, 0);
     path.close();
-
     return path;
   }
 
