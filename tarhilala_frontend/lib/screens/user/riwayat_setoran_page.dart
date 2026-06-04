@@ -56,15 +56,12 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
 
   // --- LOGIC: PEMBATALAN SETORAN ---
   Future<void> _cancelSetoran(int id) async {
-    // Tampilkan loading snackbar
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Sedang memproses pembatalan..."), duration: Duration(seconds: 1)),
     );
 
     try {
       String? token = await AuthService.getToken();
-      
-      // Mengirim request ke endpoint update status atau endpoint cancel khusus
       final response = await http.post(
         Uri.parse("${AuthService.baseUrl}/nasabah/setoran/$id/cancel"),
         headers: {
@@ -78,10 +75,10 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Request setoran berhasil dibatalkan"), backgroundColor: Colors.green),
           );
-          _fetchAllData(); // Refresh list data
+          _fetchAllData();
         }
       } else {
-        throw "Gagal membatalkan request. Status: ${response.statusCode}";
+        throw "Gagal membatalkan request.";
       }
     } catch (e) {
       if (mounted) {
@@ -92,7 +89,6 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
     }
   }
 
-  // --- UI: DIALOG KONFIRMASI BATAL ---
   void _confirmCancel(int id) {
     showDialog(
       context: context,
@@ -143,7 +139,6 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
         body: Column(
           children: [
             const TopNavbar(),
-            
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
               child: Row(
@@ -165,12 +160,10 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
                 ],
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: _buildSellBanner(),
             ),
-
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
@@ -182,7 +175,6 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
                 tabs: const [Tab(text: "Setoran Sampah"), Tab(text: "Penarikan Saldo")],
               ),
             ),
-
             Expanded(
               child: _isLoading 
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFF3B71CA)))
@@ -213,9 +205,9 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
             title: "Request #${item['id']}",
             sub: "Estimasi: ${item['estimasi_berat']} Kg",
             amount: "Rp ${item['total_harga'] ?? '0'}",
-            status: item['status'],
+            status: item['status'] ?? "menunggu",
             isIncoming: true,
-            canCancel: item['status'] == 'menunggu', // Bisa batal jika status 'menunggu'
+            canCancel: item['status'] == 'menunggu',
             onCancel: () => _confirmCancel(item['id']),
             onTap: () {}
           );
@@ -224,7 +216,6 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
     );
   }
 
-  // --- TAB: PENARIKAN SALDO ---
   Widget _buildListPenarikan() {
     if (_listRiwayatPenarikan.isEmpty) return _buildEmptyState("Belum ada riwayat penarikan");
     return RefreshIndicator(
@@ -234,14 +225,10 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
         itemCount: _listRiwayatPenarikan.length,
         itemBuilder: (context, index) {
           var item = _listRiwayatPenarikan[index];
-          
-          // Ambil data dengan aman (memberi nilai default jika null)
           String metode = item['metode'] ?? "N/A";
           String nomor = item['nomor_tujuan'] ?? "-";
           String nama = item['nama_penerima'] ?? "Tanpa Nama";
           String status = item['status'] ?? "pending";
-          
-          // Pastikan jumlah tidak null sebelum di-parse
           double jumlah = double.tryParse(item['jumlah']?.toString() ?? "0") ?? 0;
 
           return _cardTransaction(
@@ -262,6 +249,7 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
     );
   }
 
+  // --- MODIFIKASI UTAMA PADA WIDGET CARD ---
   Widget _cardTransaction({
     required String title, 
     required String sub, 
@@ -273,10 +261,24 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
     VoidCallback? onCancel,
     required VoidCallback onTap,
   }) {
-    // Logic Warna Status
+    // Logic Perbaikan Status Teks & Warna
+    String displayStatus = status.toLowerCase();
     Color statusColor = Colors.orange;
-    if (status == 'selesai') statusColor = Colors.green;
-    if (status == 'dibatalkan' || status == 'ditolak') statusColor = Colors.red;
+    String statusText = "MENUNGGU";
+
+    if (displayStatus == 'selesai') {
+      statusColor = Colors.green;
+      statusText = "SELESAI";
+    } else if (displayStatus == 'dibatalkan' || displayStatus == 'ditolak') {
+      statusColor = Colors.red;
+      statusText = "DIBATALKAN";
+    } else if (displayStatus == 'dijadwalkan') {
+      statusColor = Colors.blue;
+      statusText = "DIJADWALKAN";
+    }
+
+    // Jika dibatalkan, paksa nominal jadi Rp 0 agar sinkron dengan kenyataan
+    String finalAmount = (displayStatus == 'dibatalkan' || displayStatus == 'ditolak') ? "Rp 0" : amount;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -308,15 +310,13 @@ class _RiwayatSetoranPageState extends State<RiwayatSetoranPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(amount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(finalAmount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 5),
-                  Text(status.toUpperCase(), style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 9)),
+                  Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 9)),
                 ],
               )
             ],
           ),
-          
-          // Tombol Batalkan hanya muncul jika status 'menunggu'
           if (canCancel) ...[
             const Divider(height: 25),
             SizedBox(

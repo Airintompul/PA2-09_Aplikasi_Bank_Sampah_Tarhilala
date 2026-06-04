@@ -80,7 +80,7 @@ class SetoranController extends Controller
             $items = is_string($request->items) ? json_decode($request->items, true) : $request->items;
             $calculatedTotalHarga = 0;
 
-            // 2. PROSES UPDATE DETAIL SAMPAH (Hanya jika selesai)
+            // 2. PROSES HITUNG HARGA
             if ($request->status == 'selesai' && !empty($items)) {
                 foreach ($items as $item) {
                     if (isset($item['id'])) {
@@ -93,19 +93,24 @@ class SetoranController extends Controller
                     }
                 }
                 $totalFinalHarga = $calculatedTotalHarga;
+            } elseif ($request->status == 'dibatalkan') {
+                // JIKA BATAL: Paksa harga jadi 0
+                $totalFinalHarga = 0;
             } else {
                 $totalFinalHarga = $request->total_harga ?? $setoran->total_harga;
             }
 
-            // 3. UPDATE HEADER SETORAN
-            $setoran->update([
+            // 3. UPDATE HEADER SETORAN (DENGAN LOGIKA PEMBATALAN)
+            $updateData = [
                 'status' => $request->status,
-                'berat_final' => $request->berat_final ?? $setoran->berat_final,
+                'berat_final' => ($request->status == 'dibatalkan') ? 0 : ($request->berat_final ?? $setoran->berat_final),
                 'total_harga' => $totalFinalHarga,
                 'metode_pembayaran' => $request->metode_pembayaran ?? $setoran->metode_pembayaran,
                 'catatan' => $request->catatan ?? $setoran->catatan,
                 'jadwal_id' => $request->jadwal_id ?? $setoran->jadwal_id,
-            ]);
+            ];
+
+            $setoran->update($updateData);
 
             // =========================================================================
             // 4. LOGIKA: NOTIFIKASI DRIVER (HANYA JIKA STATUS DIJADWALKAN)
@@ -116,7 +121,6 @@ class SetoranController extends Controller
                 $nasabah = $setoran->nasabah;
 
                 if ($driver) {
-                    // A. BUAT NOTIFIKASI INTERNAL (DATABASE) UNTUK DRIVER
                     Notifikasi::create([
                         'user_id' => $driver->id,
                         'judul'   => 'Tugas Penjemputan Baru',
@@ -124,7 +128,6 @@ class SetoranController extends Controller
                         'is_read' => false
                     ]);
 
-                    // B. KIRIM WHATSAPP (OTOMATIS VIA FONNTE)
                     if ($driver->nomor_telepon) {
                         $nomorWA = $driver->nomor_telepon;
                         if (str_starts_with($nomorWA, '0')) { $nomorWA = '62' . substr($nomorWA, 1); }
@@ -146,7 +149,7 @@ class SetoranController extends Controller
                 }
             }
 
-            // 5. LOGIKA NOTIFIKASI APP (Push Notification Internal)
+            // 5. LOGIKA NOTIFIKASI APP NASABAH
             $notifTitle = ""; $notifBody = "";
             switch ($request->status) {
                 case 'dijadwalkan':
@@ -163,7 +166,7 @@ class SetoranController extends Controller
                     break;
                 case 'dibatalkan':
                     $notifTitle = "Setoran Dibatalkan";
-                    $notifBody = "Maaf, permintaan penjemputan Anda dibatalkan oleh Admin.";
+                    $notifBody = "Maaf, permintaan penjemputan Anda dibatalkan oleh Admin (Foto/Data tidak valid).";
                     break;
             }
 
@@ -254,8 +257,9 @@ class SetoranController extends Controller
         if (!$log) return response()->json(['status' => 'error'], 404);
         return response()->json(['status' => 'success', 'data' => ['lat' => (float) $log->latitude, 'lng' => (float) $log->longitude]], 200);
     }
+
     public function exportExcel()
-{
-    return Excel::download(new SetoranExport, 'Laporan_Penjemputan.xlsx');
-}
+    {
+        return Excel::download(new SetoranExport, 'Laporan_Penjemputan.xlsx');
+    }
 }

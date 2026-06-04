@@ -1,6 +1,6 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import api from '@/api';
 
 // --- STATE DATA ---
@@ -9,23 +9,40 @@ const jadwalList = ref([]);
 const isLoading = ref(true);
 const successMessage = ref('');
 const openEdit = ref(false);
+const initialStatus = ref('');
 
 const currSetoran = ref({
     id: '', nasabah: '', status: '', jadwal_id: '', berat_final: '', catatan: '',
     ai: { class: '', confidence: 0, image: '', is_correct: null, admin_class: '' }
 });
 
-// --- LOGIC HIDE NAVBAR (TAMBAHAN) ---
+// --- LOGIC HIDE NAVBAR ---
 const isAnyModalOpen = computed(() => {
     return openEdit.value;
 });
 
 // --- COMPUTED ---
 const isLocked = computed(() => {
-    return currSetoran.value.status === 'selesai' || currSetoran.value.status === 'dibatalkan';
+    return initialStatus.value === 'selesai' || initialStatus.value === 'dibatalkan';
 });
 
-// --- LOGIC (TETAP SAMA) ---
+// --- LOGIC OTOMATISASI VALIDASI BERDASARKAN STATUS ---
+const onStatusChange = () => {
+    if (isLocked.value) return;
+
+    // Jika admin memilih status "DIBATALKAN" di dropdown, otomatis tombol "SALAH" (0) terpilih
+    if (currSetoran.value.status === 'dibatalkan') {
+        currSetoran.value.ai.is_correct = 0;
+    }
+};
+
+// Fungsi manual jika admin klik tombol secara langsung
+const setAiValidation = (val) => {
+    if (isLocked.value) return;
+    currSetoran.value.ai.is_correct = val;
+};
+
+// --- LOGIC API ---
 const fetchRequests = async () => {
     try {
         const response = await api.get('/setoran');
@@ -63,12 +80,14 @@ const handleUpdate = async () => {
             berat_final: currSetoran.value.berat_final,
             catatan: currSetoran.value.catatan
         });
+
         if (currSetoran.value.ai.is_correct !== null) {
             await api.post(`/setoran/${currSetoran.value.id}/verify-ai`, {
                 is_correct: currSetoran.value.ai.is_correct,
                 admin_class: currSetoran.value.ai.admin_class
             });
         }
+
         openEdit.value = false;
         showSuccess("Data Berhasil Diperbarui!");
         fetchRequests();
@@ -76,6 +95,8 @@ const handleUpdate = async () => {
 };
 
 const openEditModal = (req) => {
+    initialStatus.value = req.status;
+
     currSetoran.value = {
         id: req.id, nasabah: req.nasabah?.nama || 'N/A', status: req.status,
         jadwal_id: req.jadwal_id || '', berat_final: req.berat_final, catatan: req.catatan,
@@ -83,7 +104,8 @@ const openEditModal = (req) => {
             class: req.ai_validation?.ai_class || 'N/A',
             confidence: req.ai_validation?.ai_confidence || 0,
             image: req.ai_validation?.image_path || '',
-            is_correct: req.ai_validation?.is_correct,
+            // Ambil dari database, jika null maka tombol tidak akan ada yang terpilih
+            is_correct: req.ai_validation ? req.ai_validation.is_correct : null,
             admin_class: req.ai_validation?.admin_class || ''
         }
     };
@@ -104,36 +126,21 @@ const formatDateTime = (dateTime) => {
     };
 };
 
-// Tambahkan ref isExporting di bagian atas bersama state lainnya
 const isExporting = ref(false);
-
-// Tambahkan fungsi ini untuk menangani download Excel
 const handleExportExcel = async () => {
     isExporting.value = true;
     try {
-        const response = await api.get('/setoran/export', {
-            responseType: 'blob' // Wajib untuk mendownload file binary
-        });
-
-        // Membuat URL sementara untuk file Excel
+        const response = await api.get('/setoran/export', { responseType: 'blob' });
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
-
-        // Penamaan file yang akan diunduh
         link.setAttribute('download', `Laporan_Penjemputan_${new Date().toLocaleDateString()}.xlsx`);
-
         document.body.appendChild(link);
         link.click();
         link.remove();
-
         showSuccess("Laporan Excel berhasil diunduh!");
-    } catch (error) {
-        console.error("Gagal export excel:", error);
-        alert("Gagal mengunduh laporan Excel.");
-    } finally {
-        isExporting.value = false;
-    }
+    } catch (error) { alert("Gagal mengunduh laporan Excel."); }
+    finally { isExporting.value = false; }
 };
 
 onMounted(() => { fetchRequests(); fetchJadwal(); });
@@ -144,16 +151,9 @@ onMounted(() => { fetchRequests(); fetchJadwal(); });
         <!-- Header Page -->
         <div :class="{'blur-sm pointer-events-none': isAnyModalOpen}" class="transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 px-2 md:px-0">
             <h2 class="text-2xl md:text-4xl font-black text-gray-900 uppercase tracking-tight leading-none">Daftar <span class="text-[#41D3BD]">Penjemputan</span></h2>
-            <button
-                @click="handleExportExcel"
-                :disabled="isExporting"
-                class="w-full md:w-auto flex items-center justify-center space-x-3 bg-[#41D3BD] hover:opacity-80 text-black px-8 py-4 rounded-2xl md:rounded-[2rem] transition-all shadow-lg font-black uppercase text-xs md:text-sm tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                <!-- Icon berubah jadi spinner saat loading -->
+            <button @click="handleExportExcel" :disabled="isExporting" class="w-full md:w-auto flex items-center justify-center space-x-3 bg-[#41D3BD] hover:opacity-80 text-black px-8 py-4 rounded-2xl md:rounded-[2rem] transition-all shadow-lg font-black uppercase text-xs md:text-sm tracking-widest disabled:opacity-50">
                 <i v-if="!isExporting" class="fa-solid fa-file-excel text-lg"></i>
                 <i v-else class="fa-solid fa-circle-notch animate-spin text-lg"></i>
-
-                <!-- Teks berubah saat loading -->
                 <span>{{ isExporting ? 'Memproses...' : 'Ekspor Laporan' }}</span>
             </button>
         </div>
@@ -163,8 +163,8 @@ onMounted(() => { fetchRequests(); fetchJadwal(); });
             <i class="fa-solid fa-circle-check text-xl md:text-2xl mr-4"></i> {{ successMessage }}
         </div>
 
-        <!-- 1. VIEW DESKTOP: TABEL (TETAP SAMA) -->
-        <div :class="{'blur-sm pointer-events-none': isAnyModalOpen}" class="hidden lg:block bg-white rounded-[2.5rem] shadow-sm border border-gray-100 relative overflow-hidden transition-all duration-300">
+        <!-- VIEW DESKTOP: TABEL -->
+        <div :class="{'blur-sm pointer-events-none': isAnyModalOpen}" class="hidden lg:block bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden transition-all duration-300">
             <table class="w-full text-left border-collapse">
                 <thead class="bg-[#41D3BD]">
                     <tr class="text-black font-black uppercase text-[11px] tracking-widest">
@@ -204,9 +204,9 @@ onMounted(() => { fetchRequests(); fetchJadwal(); });
                         </td>
                         <td class="pr-12 py-6 text-right">
                             <div class="flex justify-end space-x-2">
-                                <button v-if="req.status === 'selesai'" @click="downloadInvoice(req.id)" class="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-600 shadow-sm transition-all flex items-center justify-center"><i class="fa-solid fa-file-invoice"></i></button>
+                                <button v-if="req.status === 'selesai'" @click="downloadInvoice(req.id)" class="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl hover:bg-purple-600 flex items-center justify-center transition-all"><i class="fa-solid fa-file-invoice"></i></button>
                                 <button @click="openEditModal(req)" class="w-10 h-10 rounded-xl shadow-sm flex items-center justify-center transition-all" :class="req.status === 'selesai' || req.status === 'dibatalkan' ? 'bg-gray-100 text-gray-400' : 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'"><i :class="req.status === 'selesai' || req.status === 'dibatalkan' ? 'fa-solid fa-eye' : 'fa-solid fa-pen-nib'"></i></button>
-                                <router-link v-if="req.status !== 'selesai' && req.status !== 'dibatalkan'" :to="'/setoran/' + req.id + '/tracking'" class="w-10 h-10 bg-teal-50 text-[#41D3BD] rounded-xl hover:bg-[#41D3BD] hover:text-white flex items-center justify-center shadow-sm transition-all"><i class="fa-solid fa-map-location-dot"></i></router-link>
+                                <router-link v-if="req.status !== 'selesai' && req.status !== 'dibatalkan'" :to="'/setoran/' + req.id + '/tracking'" class="w-10 h-10 bg-teal-50 text-[#41D3BD] rounded-xl hover:bg-[#41D3BD] hover:text-white flex items-center justify-center shadow-sm"><i class="fa-solid fa-map-location-dot"></i></router-link>
                             </div>
                         </td>
                     </tr>
@@ -214,7 +214,7 @@ onMounted(() => { fetchRequests(); fetchJadwal(); });
             </table>
         </div>
 
-        <!-- 2. VIEW MOBILE: CARDS (TETAP SAMA) -->
+        <!-- VIEW MOBILE: CARDS -->
         <div :class="{'blur-sm pointer-events-none': isAnyModalOpen}" class="lg:hidden space-y-4 px-2 pb-10 transition-all duration-300">
             <div v-for="req in requests" :key="req.id" class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
                 <div class="flex justify-between items-start">
@@ -226,14 +226,14 @@ onMounted(() => { fetchRequests(); fetchJadwal(); });
                         :class="{'bg-yellow-50 text-yellow-600 border-yellow-100': req.status === 'menunggu', 'bg-green-50 text-green-600 border-green-100': req.status === 'selesai', 'bg-red-50 text-red-600 border-red-100': req.status === 'dibatalkan', 'bg-blue-50 text-blue-600 border-blue-100': ['dijadwalkan', 'dalam_penjemputan'].includes(req.status)}">{{ req.status }}</span>
                 </div>
                 <div class="flex-1 flex space-x-2">
-                    <button @click="openEditModal(req)" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase shadow-sm"> {{ (req.status === 'selesai' || req.status === 'dibatalkan') ? 'Lihat Detail' : 'Kelola' }} </button>
+                    <button @click="openEditModal(req)" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-black text-[10px] uppercase shadow-sm">{{ (req.status === 'selesai' || req.status === 'dibatalkan') ? 'Lihat Detail' : 'Kelola' }}</button>
                     <router-link v-if="req.status !== 'selesai' && req.status !== 'dibatalkan'" :to="'/setoran/' + req.id + '/tracking'" class="w-12 h-12 bg-teal-50 text-[#41D3BD] rounded-xl flex items-center justify-center border border-teal-100"><i class="fa-solid fa-map-location-dot"></i></router-link>
                     <button v-if="req.status === 'selesai'" @click="downloadInvoice(req.id)" class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center border border-purple-100"><i class="fa-solid fa-file-invoice"></i></button>
                 </div>
             </div>
         </div>
 
-        <!-- MODAL: DIPERKECIL UKURANNYA (max-w-4xl) AGAR GAK NABRAK SIDEBAR -->
+        <!-- MODAL -->
         <div v-if="openEdit" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 transition-all">
             <div class="bg-white rounded-[2.5rem] md:rounded-[3.5rem] max-w-4xl w-full p-6 md:p-10 shadow-2xl relative max-h-[90vh] overflow-y-auto border-[6px] md:border-[10px] border-slate-900">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
@@ -250,8 +250,9 @@ onMounted(() => { fetchRequests(); fetchJadwal(); });
                         <div class="space-y-3">
                             <p class="text-[9px] md:text-[11px] font-black text-gray-400 uppercase tracking-widest ml-2">Validasi Admin</p>
                             <div class="flex space-x-2 md:space-x-4">
-                                <button :disabled="isLocked" @click="currSetoran.ai.is_correct = 1" :class="currSetoran.ai.is_correct === 1 ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 text-gray-400'" class="flex-1 py-3 md:py-4 rounded-xl md:rounded-2xl font-black uppercase text-[10px] transition-all">Sesuai</button>
-                                <button :disabled="isLocked" @click="currSetoran.ai.is_correct = 0" :class="currSetoran.ai.is_correct === 0 ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-100 text-gray-400'" class="flex-1 py-3 md:py-4 rounded-xl md:rounded-2xl font-black uppercase text-[10px] transition-all">Salah</button>
+                                <!-- Tombol akan menyala jika is_correct bernilai 1 atau 0, jika null maka keduanya abu-abu -->
+                                <button :disabled="isLocked" @click="setAiValidation(1)" :class="currSetoran.ai.is_correct === 1 ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 text-gray-400'" class="flex-1 py-3 md:py-4 rounded-xl md:rounded-2xl font-black uppercase text-[10px] transition-all">Sesuai</button>
+                                <button :disabled="isLocked" @click="setAiValidation(0)" :class="currSetoran.ai.is_correct === 0 ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-100 text-gray-400'" class="flex-1 py-3 md:py-4 rounded-xl md:rounded-2xl font-black uppercase text-[10px] transition-all">Salah</button>
                             </div>
                         </div>
                     </div>
@@ -269,11 +270,10 @@ onMounted(() => { fetchRequests(); fetchJadwal(); });
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[9px] md:text-[11px] font-black text-gray-400 uppercase tracking-widest ml-2">Status Penjemputan</label>
-                                <select :disabled="isLocked" v-model="currSetoran.status" class="w-full px-5 py-4 md:py-5 bg-gray-50 border-none rounded-xl md:rounded-[2rem] font-black text-slate-800 uppercase text-[10px] md:text-xs">
+                                <!-- Gunakan @change untuk trigger otomatisasi tombol SALAH -->
+                                <select :disabled="isLocked" v-model="currSetoran.status" @change="onStatusChange" class="w-full px-5 py-4 md:py-5 bg-gray-50 border-none rounded-xl md:rounded-[2rem] font-black text-slate-800 uppercase text-[10px] md:text-xs">
                                     <option value="menunggu">DAFTAR TUNGGU</option>
                                     <option value="dijadwalkan">DIJADWALKAN</option>
-                                    <option value="dalam_penjemputan">DALAM PERJALANAN</option>
-                                    <option value="selesai">SELESAI</option>
                                     <option value="dibatalkan">DIBATALKAN</option>
                                 </select>
                             </div>

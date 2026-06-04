@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/setoran_model.dart';
 
 class PickupService {
-  static const String baseUrl = "http://13.250.117.185/api";
+  static const String baseUrl = "http://13.250.117.185//api";
 
   // =========================
   // TOKEN HELPER
