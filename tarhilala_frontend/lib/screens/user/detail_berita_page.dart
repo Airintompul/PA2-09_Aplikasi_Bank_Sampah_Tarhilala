@@ -13,7 +13,7 @@ class DetailBeritaPage extends StatelessWidget {
     if (path.isEmpty) return "";
     if (path.startsWith('http')) return path;
     // Gabungkan dengan IP server (Menyesuaikan folder assets Laravel)
-    return "http://13.250.117.185/$path";
+    return "http://10.0.2.2:8000/$path";
   }
 
   @override

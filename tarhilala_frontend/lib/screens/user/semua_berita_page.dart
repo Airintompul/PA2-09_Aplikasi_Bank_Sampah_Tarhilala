@@ -57,7 +57,7 @@ class _SemuaBeritaPageState extends State<SemuaBeritaPage> {
     if (path.isEmpty) return "";
     if (path.startsWith('http')) return path;
     // Sesuaikan dengan letak assets di server Anda (menghilangkan kata 'storage')
-    return "http://13.250.117.185/$path";
+    return "http://10.0.2.2:8000/$path";
   }
 
   @override

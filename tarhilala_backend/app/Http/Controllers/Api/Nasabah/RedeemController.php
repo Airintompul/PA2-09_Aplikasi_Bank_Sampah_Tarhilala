@@ -12,73 +12,77 @@ use Illuminate\Support\Facades\Log;
 
 class RedeemController extends Controller
 {
-        public function redeem(Request $request)
-    {
-        // 1. Validasi Input Lengkap
-        $request->validate([
-            'reward_id'         => 'required|exists:reward,id',
-            'jumlah'            => 'required|integer|min:1',
-            'lokasi_lat'        => 'required',
-            'lokasi_lng'        => 'required',
-            'alamat_pengiriman' => 'required|string',
-            'catatan'           => 'nullable|string'
-        ]);
+public function redeem(Request $request)
+{
+    // 1. Validasi Input
+    $request->validate([
+        'reward_id'         => 'required|exists:reward,id',
+        'jumlah'            => 'required|integer|min:1',
+        'lokasi_lat'        => 'required',
+        'lokasi_lng'        => 'required',
+        'alamat_pengiriman' => 'required|string',
+        'catatan'           => 'nullable|string'
+    ]);
 
-        $reward = Reward::findOrFail($request->reward_id);
-        $user = auth()->user();
-        $totalPoinDibutuhkan = $reward->poin_dibutuhkan * $request->jumlah;
+    $reward = Reward::findOrFail($request->reward_id);
+    $user = auth()->user();
+    $totalPoinDibutuhkan = $reward->poin_dibutuhkan * $request->jumlah;
 
-        if ($reward->stok < $request->jumlah) {
-            return response()->json(['status' => 'error', 'message' => 'Stok tidak mencukupi'], 400);
-        }
+    // --- LOGIKA POIN LOKAL (TANPA MIGRASI) ---
+    // Hitung total poin dari tabel log
+    $totalPoinUser = \App\Models\PoinLog::where('user_id', $user->id)->sum('poin');
 
-        return DB::transaction(function () use ($reward, $user, $request, $totalPoinDibutuhkan) {
-            try {
-                // 2. Potong Poin di Finance Service (Port 8001)
-                $response = Http::withHeaders([
-                    'X-Internal-Key' => env('INTERNAL_API_KEY', 'TarhilalaSecretFinanceKey2024'),
-                    'Accept'         => 'application/json'
-                ])->post('http://127.0.0.1:8001/api/internal/deduct-points', [
-                    'user_id'           => $user->id,
-                    'points'            => $totalPoinDibutuhkan,
-                    'description'       => "Tukar {$request->jumlah}x {$reward->nama_reward}",
-                    'reference_table'   => 'penukaran_reward',
-                    'reference_data_id' => null // Akan diupdate setelah ID dibuat jika perlu
-                ]);
-
-                if ($response->failed()) {
-                    return response()->json(['status' => 'error', 'message' => 'Poin tidak cukup'], 400);
-                }
-
-                // 3. Kurangi Stok
-                $reward->decrement('stok', $request->jumlah);
-
-                // 4. Simpan Transaksi Penukaran dengan Data Pengiriman
-                $penukaran = PenukaranReward::create([
-                    'user_id'           => $user->id,
-                    'reward_id'         => $reward->id,
-                    'jumlah'            => $request->jumlah,
-                    'poin_digunakan'    => $totalPoinDibutuhkan,
-                    'status'            => 'menunggu', // Status awal
-                    'lokasi_lat'        => $request->lokasi_lat,
-                    'lokasi_lng'        => $request->lokasi_lng,
-                    'alamat_pengiriman' => $request->alamat_pengiriman,
-                    'catatan'           => $request->catatan,
-                    'tanggal_penukaran' => now()
-                ]);
-
-                return response()->json([
-                    'status'  => 'success',
-                    'message' => 'Penukaran berhasil! Admin akan segera memproses pengiriman.',
-                    'data'    => $penukaran
-                ], 201);
-
-            } catch (\Exception $e) {
-                Log::error("Redeem Error: " . $e->getMessage());
-                return response()->json(['status' => 'error', 'message' => 'Gagal terhubung ke layanan keuangan'], 500);
-            }
-        });
+    // Cek kecukupan poin
+    if ($totalPoinUser < $totalPoinDibutuhkan) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Poin tidak cukup. Anda butuh ' . $totalPoinDibutuhkan . ' poin.'
+        ], 400);
     }
+
+    if ($reward->stok < $request->jumlah) {
+        return response()->json(['status' => 'error', 'message' => 'Stok tidak mencukupi'], 400);
+    }
+
+    return DB::transaction(function () use ($reward, $user, $request, $totalPoinDibutuhkan) {
+        try {
+            // 2. POTONG POIN LOKAL (Memasukkan nilai NEGATIF ke PoinLog)
+            \App\Models\PoinLog::create([
+                'user_id'     => $user->id,
+                'poin'        => -$totalPoinDibutuhkan, // Nilai Minus (Contoh: -5)
+                'source_type' => 'redeem',
+                'source_id'   => $reward->id
+            ]);
+
+            // 3. Kurangi Stok Reward
+            $reward->decrement('stok', $request->jumlah);
+
+            // 4. Simpan Transaksi Penukaran
+            $penukaran = PenukaranReward::create([
+                'user_id'           => $user->id,
+                'reward_id'         => $reward->id,
+                'jumlah'            => $request->jumlah,
+                'poin_digunakan'    => $totalPoinDibutuhkan,
+                'status'            => 'menunggu',
+                'lokasi_lat'        => $request->lokasi_lat,
+                'lokasi_lng'        => $request->lokasi_lng,
+                'alamat_pengiriman' => $request->alamat_pengiriman,
+                'catatan'           => $request->catatan,
+                'tanggal_penukaran' => now()
+            ]);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Penukaran berhasil! Admin akan segera memproses.',
+                'data'    => $penukaran
+            ], 201);
+
+        } catch (\Exception $e) {
+            Log::error("Redeem Error: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => 'Gagal memproses penukaran'], 500);
+        }
+    });
+}
         public function riwayat(Request $request)
     {
         $user = auth()->user();

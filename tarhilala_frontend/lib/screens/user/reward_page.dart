@@ -41,10 +41,18 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? token = prefs.getString('token');
+
       final response = await http.get(
-        Uri.parse("http://13.250.117.185/api/profile"),
-        headers: {"Authorization": "Bearer $token", "Accept": "application/json"},
+        Uri.parse("http://10.0.2.2:8000/api/profile"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Accept": "application/json",
+        },
       );
+
+      // --- PERBAIKAN: Cek mounted ---
+      if (!mounted) return; 
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
@@ -53,12 +61,19 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
         });
       }
     } catch (e) {
-      setState(() => loadingPoin = false);
+      debugPrint("Error fetch poin: $e");
+      if (mounted) {
+        setState(() => loadingPoin = false);
+      }
     }
   }
 
   Future<void> loadRewards() async {
     final data = await RewardService.getRewards();
+    
+    // --- PERBAIKAN: Cek mounted ---
+    if (!mounted) return;
+
     setState(() {
       rewards = data;
       loadingRewards = false;
@@ -66,8 +81,13 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
   }
 
   Future<void> loadHistory() async {
-    setState(() => loadingHistory = true);
+    if (mounted) setState(() => loadingHistory = true);
+    
     final data = await RedeemService.getRiwayatRedeem();
+    
+    // --- PERBAIKAN: Cek mounted ---
+    if (!mounted) return;
+
     setState(() {
       history = data;
       loadingHistory = false;
@@ -76,24 +96,23 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
 
   // --- LOGIC: KONFIRMASI TERIMA BARANG ---
   void _handleKonfirmasiTerima(int id) async {
-    setState(() => loadingHistory = true);
+    if (mounted) setState(() => loadingHistory = true);
     
     bool success = await RedeemService.confirmReceipt(id);
     
+    // --- PERBAIKAN: Cek mounted ---
+    if (!mounted) return;
+
     if (success) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Berhasil! Hadiah telah diterima."), backgroundColor: Colors.green)
-        );
-        _initialLoad(); // Refresh semua data termasuk poin
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Berhasil! Hadiah telah diterima."), backgroundColor: Colors.green)
+      );
+      _initialLoad(); // Refresh semua data termasuk poin
     } else {
-      if (mounted) {
-        setState(() => loadingHistory = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Gagal mengonfirmasi."), backgroundColor: Colors.red)
-        );
-      }
+      setState(() => loadingHistory = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Gagal mengonfirmasi."), backgroundColor: Colors.red)
+      );
     }
   }
 
@@ -110,7 +129,7 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
   String getCleanImageUrl(String? url) {
     if (url == null || url.isEmpty) return "";
     String cleaned = url.replaceAll("127.0.0.1", "10.0.2.2");
-    if (!cleaned.startsWith("http")) cleaned = "http://13.250.117.185/storage/$cleaned";
+    if (!cleaned.startsWith("http")) cleaned = "http://10.0.2.2:8000/storage/$cleaned";
     return cleaned.replaceAll(" ", "%20");
   }
 
@@ -161,7 +180,7 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
                             ),
                             const SizedBox(width: 15),
                             const Text(
-                              "Reward & Poin", // Judul halaman agar konsisten dengan Jual Sampah/Jadwal
+                              "Reward & Poin",
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -178,7 +197,6 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
                     const SizedBox(height: 20),
                     
                     SizedBox(
-                      // Menggunakan tinggi dinamis berdasarkan konten agar bisa di-scroll di dalam RefreshIndicator
                       height: MediaQuery.of(context).size.height * 0.65, 
                       child: TabBarView(
                         controller: _tabController,
@@ -418,7 +436,6 @@ class _RewardPageState extends State<RewardPage> with SingleTickerProviderStateM
                 ],
               ),
               
-              // --- TOMBOL AKSI: MUNCUL JIKA STATUS DIKIRIM ---
               if (status == 'dikirim') ...[
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 10),

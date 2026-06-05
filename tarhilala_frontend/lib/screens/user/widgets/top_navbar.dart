@@ -27,7 +27,7 @@ class _TopNavbarState extends State<TopNavbar> {
       String? token = prefs.getString('token');
 
       final response = await http.get(
-        Uri.parse("http://13.250.117.185/api/notifications/unread-count"),
+        Uri.parse("http://10.0.2.2:8000/api/notifications/unread-count"),
         headers: {
           "Authorization": "Bearer $token",
           "Accept": "application/json",

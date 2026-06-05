@@ -27,7 +27,7 @@ class _JadwalPenjemputanPageState extends State<JadwalPenjemputanPage> {
       String? token = prefs.getString('token');
 
       final response = await http.get(
-        Uri.parse("http://13.250.117.185/api/nasabah/jadwal-nasabah"),
+        Uri.parse("http://10.0.2.2:8000/api/nasabah/jadwal-nasabah"),
         headers: {
           "Authorization": "Bearer $token",
           "Accept": "application/json",

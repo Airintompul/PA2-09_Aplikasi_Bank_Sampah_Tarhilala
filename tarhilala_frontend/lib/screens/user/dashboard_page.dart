@@ -75,7 +75,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
 
   try {
     final response = await http.get(
-      Uri.parse("http://13.250.117.185/api/profile"), // Pastikan URL benar
+      Uri.parse("http://10.0.2.2:8000/api/profile"), // Pastikan URL benar
       headers: {
         "Authorization": "Bearer $token",
         "Accept": "application/json",
@@ -430,10 +430,10 @@ Widget _beritaCard(Map item) {
   } else if (thumbnailPath.startsWith('http')) {
     // Jika backend sudah mengirim http://13.250.117.185/assets/...
     fullImageUrl = thumbnailPath;
-  } else {
+  } else {  
     // Jika backend hanya mengirim assets/img/thumbnails/file.jpg
     // Kita gabungkan manual dengan IP server
-    fullImageUrl = "http://13.250.117.185/$thumbnailPath";
+    fullImageUrl = "http://10.0.2.2:8000/$thumbnailPath";
   }
 
   return GestureDetector(

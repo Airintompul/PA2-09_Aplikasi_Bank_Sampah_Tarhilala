@@ -3,44 +3,51 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RedeemService {
-  static const String baseUrl = "http://13.250.117.185/api";
+  static const String baseUrl = "http://10.0.2.2:8000/api";
 
   // 1. FUNGSI TUKAR POIN (Disesuaikan dengan Alamat & GPS)
-  static Future<bool> redeemReward({
-    required int rewardId,
-    required int jumlah,
-    required String lat,
-    required String lng,
-    required String alamat,
-    String? catatan,
-  }) async {
-    try {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('token');
+static Future<bool> redeemReward({
+  required int rewardId,
+  required int jumlah,
+  required String lat,
+  required String lng,
+  required String alamat,
+  String? catatan,
+}) async {
+  try {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString('token');
 
-      final response = await http.post(
-        Uri.parse("$baseUrl/nasabah/redeem"),
-        headers: {
-          "Authorization": "Bearer $token",
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: jsonEncode({
-          "reward_id": rewardId,
-          "jumlah": jumlah,
-          "lokasi_lat": lat,
-          "lokasi_lng": lng,
-          "alamat_pengiriman": alamat,
-          "catatan": catatan ?? "",
-        }),
-      );
+    final response = await http.post(
+      Uri.parse("$baseUrl/nasabah/redeem"),
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: jsonEncode({
+        "reward_id": rewardId,
+        "jumlah": jumlah,
+        // Kirim 0.0 jika GPS kosong agar tidak error validasi numeric
+        "lokasi_lat": lat.isEmpty ? "0.0" : lat, 
+        "lokasi_lng": lng.isEmpty ? "0.0" : lng,
+        "alamat_pengiriman": alamat,
+        "catatan": catatan ?? "",
+      }),
+    );
 
-      return response.statusCode == 201 || response.statusCode == 200;
-    } catch (e) {
-      print("Error RedeemService (Redeem): $e");
-      return false;
+    // CETAK ERROR UNTUK DEBUGGING
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      print("REDEEM GAGAL: ${response.statusCode}");
+      print("PESAN SERVER: ${response.body}"); // Baca pesan ini di console VS Code
     }
+
+    return response.statusCode == 201 || response.statusCode == 200;
+  } catch (e) {
+    print("Error RedeemService: $e");
+    return false;
   }
+}
 
   // 2. FUNGSI AMBIL RIWAYAT PENUKARAN
   static Future<List> getRiwayatRedeem() async {

@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_service.dart';
 
 class NotificationService {
-  static const String apiUrl = "http://13.250.117.185/api";
+  static const String apiUrl = "http://10.0.2.2:8000/api";
   // Tambahkan fungsi pembantu untuk mendapatkan prefix URL berdasarkan role
   static Future<String> _getPrefix() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();

@@ -156,30 +156,39 @@ class UserAuthController extends Controller
 
     // tarhilala_backend (Port 8000)
 
-public function profile(Request $request) {
-    $user = $request->user();
-    $headers = ['X-Internal-Key' => env('INTERNAL_API_KEY')];
+    public function profile(Request $request) {
+        $user = $request->user();
 
-    $saldo = 0;
-    $poin = 0;
+        // 1. HITUNG POIN LANGSUNG DARI TABEL poin_log (Lokal Port 8000)
+        // Ini solusi tanpa menambah kolom/migrasi di tabel users
+        $poin = \App\Models\PoinLog::where('user_id', $user->id)->sum('poin');
 
-    try {
-        // AMBIL SALDO UANG DARI 8001
-        $resSaldo = Http::withHeaders($headers)->get("http://127.0.0.1:8001/api/internal/balance/{$user->id}?type=saldo");
-        if ($resSaldo->successful()) $saldo = $resSaldo->json('balance');
+        // 2. AMBIL SALDO
+        $saldo = 0;
+        try {
+            $headers = ['X-Internal-Key' => env('INTERNAL_API_KEY')];
+            $resSaldo = Http::withHeaders($headers)->get("http://127.0.0.1:8001/api/internal/balance/{$user->id}?type=saldo");
 
-        // AMBIL SALDO POIN DARI 8001 (Ini sumber poin yang benar untuk belanja)
-        $resPoin = Http::withHeaders($headers)->get("http://127.0.0.1:8001/api/internal/balance/{$user->id}?type=poin");
-        if ($resPoin->successful()) $poin = $resPoin->json('balance');
+            if ($resSaldo->successful()) {
+                $saldo = $resSaldo->json('balance');
+            } else {
+                // Jika Microservice 8001 gagal, hitung saldo dari tabel setoran lokal sebagai backup
+                $saldo = \App\Models\Setoran::where('nasabah_id', $user->id)
+                            ->where('status', 'selesai')
+                            ->sum('total_harga');
+            }
+        } catch (\Exception $e) {
+            // Jika koneksi ke 8001 mati total, gunakan data lokal
+            $saldo = \App\Models\Setoran::where('nasabah_id', $user->id)
+                        ->where('status', 'selesai')
+                        ->sum('total_harga');
+            \Log::error("Koneksi 8001 gagal, menggunakan perhitungan lokal.");
+        }
 
-    } catch (\Exception $e) {
-        \Log::error("Koneksi 8001 gagal");
+        return response()->json([
+            'nama'  => $user->nama,
+            'saldo' => $saldo,
+            'poin'  => (int)$poin, // Sekarang poin diambil dari tabel log lokal Anda
+        ]);
     }
-
-    return response()->json([
-        'nama'  => $user->nama,
-        'saldo' => $saldo,
-        'poin'  => (int)$poin, // Sekarang poin di dashboard akan sama dengan poin di Finance
-    ]);
-}
 }

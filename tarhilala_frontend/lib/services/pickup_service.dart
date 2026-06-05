@@ -5,49 +5,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/setoran_model.dart';
 
 class PickupService {
-  static const String baseUrl = "http://13.250.117.185//api";
+  // Gunakan IP Emulator
+  static const String baseUrl = "http://10.0.2.2:8000/api";
 
-  // =========================
-  // TOKEN HELPER
-  // =========================
+  // Helper Token
   Future<String?> _getToken() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
   }
 
-  // =========================
-  // 1. MASTER WASTE
-  // =========================
+  // ============================================================
+  // 1. DATA SAMPAH (Static agar User & Petugas bisa panggil)
+  // ============================================================
   static Future<List> getWasteTypes() async {
     try {
       final response = await http.get(
-        Uri.parse("$baseUrl/jenis-sampah"),
+        Uri.parse("$baseUrl/harga-sampah"),
         headers: {"Accept": "application/json"},
       );
 
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] ?? [];
       }
-
-      print("getWasteTypes ERROR: ${response.body}");
     } catch (e) {
-      print("Error fetch sampah: $e");
+      print("Error getWasteTypes: $e");
     }
     return [];
   }
 
-  // =========================
+  // ============================================================
   // 2. PROFILE
-  // =========================
+  // ============================================================
   Future<Map<String, dynamic>> getProfileData() async {
     try {
       String? token = await _getToken();
-
-      if (token == null) {
-        print("TOKEN NULL");
-        return {"nama": "Nasabah", "saldo": 0, "poin": 0};
-      }
-
       final response = await http.get(
         Uri.parse("$baseUrl/profile"),
         headers: {
@@ -55,31 +47,19 @@ class PickupService {
           "Accept": "application/json",
         },
       );
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return jsonDecode(response.body);
-      }
-
-      print("Profile ERROR: ${response.body}");
+      if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (e) {
       print("Error profile: $e");
     }
-
     return {"nama": "Nasabah", "saldo": 0, "poin": 0};
   }
 
-  // =========================
-  // 3. LIST SETORAN
-  // =========================
+  // ============================================================
+  // 3. LIST SETORAN (PETUGAS)
+  // ============================================================
   Future<List<SetoranModel>> getSetoranRequests() async {
     try {
       String? token = await _getToken();
-
-      if (token == null) {
-        print("TOKEN NULL");
-        return [];
-      }
-
       final response = await http.get(
         Uri.parse("$baseUrl/admin/setoran"),
         headers: {
@@ -87,30 +67,23 @@ class PickupService {
           "Authorization": "Bearer $token",
         },
       );
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(response.body);
         final List<dynamic> data = body['data'] ?? [];
         return SetoranModel.fromList(data);
       }
-
-      print("Setoran ERROR: ${response.body}");
-      return [];
     } catch (e) {
       print("Error getSetoranRequests: $e");
-      return [];
     }
+    return [];
   }
 
-  // =========================
+  // ============================================================
   // 4. UPDATE STATUS SIMPLE
-  // =========================
+  // ============================================================
   Future<bool> updateStatus(int id, String status) async {
     try {
       String? token = await _getToken();
-
-      if (token == null) return false;
-
       final response = await http.put(
         Uri.parse("$baseUrl/admin/setoran/$id"),
         headers: {
@@ -120,49 +93,28 @@ class PickupService {
         },
         body: jsonEncode({'status': status}),
       );
-
-      print("updateStatus => ${response.statusCode}");
-      print(response.body);
-
-      return response.statusCode >= 200 && response.statusCode < 300;
+      return response.statusCode == 200;
     } catch (e) {
       print("Error updateStatus: $e");
       return false;
     }
   }
 
-  // =========================
-  // 5. UPDATE FINAL (CORE FINANCE)
-  // =========================
+  // ============================================================
+  // 5. UPDATE FINAL (CORE FINANCE) - Menggunakan metode_pembayaran
+  // ============================================================
   Future<bool> updateStatusComplete({
     required int id,
     required String status,
     required double beratFinal,
     required double totalHarga,
-    required String metode_pembayaran,
+    required String metode_pembayaran, // Nama parameter dikembalikan
     required String catatan,
     required List<Map<String, dynamic>> items,
     File? foto,
   }) async {
     try {
       String? token = await _getToken();
-
-      if (token == null) {
-        print("TOKEN NULL");
-        return false;
-      }
-
-      // VALIDASI METODE
-      if (metode_pembayaran.isEmpty) {
-        print("ERROR: metode_pembayaran kosong");
-        return false;
-      }
-
-      if (!['saldo', 'cash', 'transfer'].contains(metode_pembayaran)) {
-        print("ERROR: metode tidak valid");
-        return false;
-      }
-
       var uri = Uri.parse("$baseUrl/admin/setoran/$id");
       var request = http.MultipartRequest('POST', uri);
 
@@ -171,10 +123,7 @@ class PickupService {
         "Accept": "application/json",
       });
 
-      // method spoofing Laravel
-      request.fields['_method'] = 'PUT';
-
-      // DATA UTAMA
+      request.fields['_method'] = 'PUT'; // Spoofing Laravel
       request.fields['status'] = status;
       request.fields['berat_final'] = beratFinal.toString();
       request.fields['total_harga'] = totalHarga.toString();
@@ -182,43 +131,25 @@ class PickupService {
       request.fields['catatan'] = catatan;
       request.fields['items'] = jsonEncode(items);
 
-      // DEBUG (penting untuk tracing bug)
-      print("=== REQUEST DEBUG ===");
-      print("metode: $metode_pembayaran");
-      print("total: $totalHarga");
-
-      // FILE UPLOAD
       if (foto != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'bukti_transfer',
-            foto.path,
-          ),
-        );
+        request.files.add(await http.MultipartFile.fromPath('bukti_transfer', foto.path));
       }
 
       var streamed = await request.send();
       var response = await http.Response.fromStream(streamed);
-
-      print("STATUS: ${response.statusCode}");
-      print("BODY: ${response.body}");
-
-      return response.statusCode >= 200 && response.statusCode < 300;
+      return response.statusCode == 200;
     } catch (e) {
       print("updateStatusComplete ERROR: $e");
       return false;
     }
   }
 
-  // =========================
+  // ============================================================
   // 6. JADWAL OPERASIONAL
-  // =========================
+  // ============================================================
   Future<List<dynamic>> getJadwalOperasional() async {
     try {
       String? token = await _getToken();
-
-      if (token == null) return [];
-
       final response = await http.get(
         Uri.parse("$baseUrl/nasabah/jadwal-nasabah"),
         headers: {
@@ -226,18 +157,13 @@ class PickupService {
           "Authorization": "Bearer $token",
         },
       );
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-
         return data['data']?['schedules'] ?? [];
       }
-
-      print("Jadwal ERROR: ${response.body}");
-      return [];
     } catch (e) {
-      print("Error getJadwalOperasional: $e");
-      return [];
+      print("Error jadwal: $e");
     }
+    return [];
   }
 }

@@ -36,12 +36,12 @@ class _TransaksiPageState extends State<TransaksiPage> {
 
     try {
       final resProfile = await http.get(
-        Uri.parse("http://13.250.117.185/api/profile"),
+        Uri.parse("http://10.0.2.2:8000/api/profile"),
         headers: {"Authorization": "Bearer $token", "Accept": "application/json"},
       );
       
       final resHistory = await http.get(
-        Uri.parse("http://13.250.117.185/api/nasabah/riwayat-penarikan"),
+        Uri.parse("http://10.0.2.2:8000/api/nasabah/riwayat-penarikan"),
         headers: {"Authorization": "Bearer $token", "Accept": "application/json"},
       );
 
@@ -79,7 +79,7 @@ class _TransaksiPageState extends State<TransaksiPage> {
 
     try {
       final response = await http.post(
-        Uri.parse("http://13.250.117.185/api/nasabah/tarik-saldo"),
+        Uri.parse("http://10.0.2.2:8000/api/nasabah/tarik-saldo"),
         headers: {
           "Authorization": "Bearer $token",
           "Content-Type": "application/json",
