@@ -172,7 +172,7 @@ onMounted(() => fetchCustomers());
                         <tr v-for="customer in customers" :key="customer.id" class="hover:bg-gray-50/50 transition-all">
                             <td class="pl-12 py-6">
                                 <div class="flex flex-col">
-                                    <span class="font-black text-lg uppercase text-blue-600 tracking-tighter leading-none">{{ customer.nama }}</span>
+                                    <span class="font-black text-lg uppercase text-black-600 tracking-tighter leading-none">{{ customer.nama }}</span>
                                     <span class="text-[10px] text-gray-400 font-bold uppercase mt-1">ID: #NSB-{{ customer.id }}</span>
                                 </div>
                             </td>

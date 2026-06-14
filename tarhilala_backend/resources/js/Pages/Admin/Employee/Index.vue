@@ -161,7 +161,7 @@ onMounted(() => fetchEmployees());
                         <tr v-for="emp in employees" :key="emp.id" class="hover:bg-gray-50/50 transition-all">
                             <td class="pl-12 py-6">
                                 <div class="flex flex-col">
-                                    <span class="font-black text-lg uppercase text-blue-600 tracking-tighter leading-none">{{ emp.nama }}</span>
+                                    <span class="font-black text-lg uppercase text-black-600 tracking-tighter leading-none">{{ emp.nama }}</span>
                                     <span class="text-[10px] text-gray-400 font-bold uppercase mt-1">ID: #EMP-{{ emp.id }}</span>
                                 </div>
                             </td>

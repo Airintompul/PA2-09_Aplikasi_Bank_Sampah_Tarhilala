@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- CSS Utama -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <src="{{ asset('img/logo.png') }}" rel="icon">
 </head>
 <body class="bg-gray-100 font-sans">
     <div id="app"></div> <!-- Pastikan ini ada untuk tempat menempelnya Vue -->

@@ -153,7 +153,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/messages/{id}/status', [MessageController::class, 'updateStatus']);
 
         Route::get('/notifications', [AdminController::class, 'getNotifications']);
-        Route::put('/notifications/{id}/read', [AdminController::class, 'markAsRead']);
+        Route::post('/notifications/{id}/read', [AdminController::class, 'markAsRead']);
+        Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
 
         Route::get('/penarikan/export', [App\Http\Controllers\Api\Nasabah\WithdrawalController::class, 'exportForAdmin']);
 

@@ -14,20 +14,42 @@ class NotificationController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-        return response()->json(['status' => 'success', 'data' => $data]);
+        // Sesuaikan response agar pas dengan Frontend Vue
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'notifications' => $data,
+                'unread_count' => $data->where('is_read', false)->count()
+            ]
+        ]);
     }
 
     public function markAsRead($id)
     {
-        Notifikasi::where('id', $id)->where('user_id', auth()->id())
+        Notifikasi::where('id', $id)
+            ->where('user_id', auth()->id())
             ->update(['is_read' => true]);
 
-        return response()->json(['message' => 'Notifikasi dibaca']);
+        return response()->json(['status' => 'success', 'message' => 'Notifikasi dibaca']);
+    }
+
+    /**
+     * Menandai semua notifikasi milik user ini sebagai 'sudah dibaca'
+     */
+    public function markAllRead()
+    {
+        Notifikasi::where('user_id', auth()->id())
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Semua notifikasi telah ditandai dibaca'
+        ]);
     }
 
     public function unreadCount()
     {
-        // Hitung berapa notif yang is_read-nya masih false
         $count = Notifikasi::where('user_id', auth()->id())
                     ->where('is_read', false)
                     ->count();

@@ -55,7 +55,7 @@ class _DetailRewardPageState extends State<DetailRewardPage> {
   // --- HELPER UNTUK MEMBERSIHKAN URL GAMBAR ---
   String getCleanImageUrl(String? url) {
     if (url == null) return "";
-    String fixedUrl = url.replaceAll("127.0.0.1", "10.0.2.2");
+    String fixedUrl = url.replaceAll("127.0.0.1", "127.0.0.1",);
     return Uri.encodeFull(fixedUrl);
   }
 

@@ -61,11 +61,13 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
 
   void _calculateTotals() {
     double berat = 0, harga = 0;
+    // Hitung item lama
     for (int i = 0; i < widget.setoran.rincianSampah.length; i++) {
       double b = double.tryParse(_weightControllers[i].text.replaceAll(',', '.')) ?? 0;
       berat += b;
       harga += b * widget.setoran.rincianSampah[i].hargaSatuan;
     }
+    // Hitung item tambahan
     for (var e in _extraItems) {
       double b = double.tryParse(e['controller'].text.replaceAll(',', '.')) ?? 0;
       berat += b;
@@ -85,30 +87,52 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
     if (f != null) setState(() => _confirmationImage = File(f.path));
   }
 
+  // ─── LOGIC FIX: Penanganan Item Tambahan ─────────────────────────
   void _submitSelesai() async {
     if (_confirmationImage == null) { _showSnack("Wajib foto timbangan sebagai bukti!", Colors.red); return; }
     if (_totalBeratFinal <= 0)      { _showSnack("Berat total tidak boleh 0 kg!", Colors.orange); return; }
     setState(() => _isProcessing = true);
 
-    List<Map<String, dynamic>> items = [
-      for (int i = 0; i < widget.setoran.rincianSampah.length; i++)
-        {"id": widget.setoran.rincianSampah[i].id,
-         "berat_aktual": double.tryParse(_weightControllers[i].text.replaceAll(',', '.')) ?? 0},
-      for (var e in _extraItems)
-        if (e['jenis_sampah_id'] != null)
-          {"jenis_sampah_id": e['jenis_sampah_id'],
-           "berat_aktual": double.tryParse(e['controller'].text.replaceAll(',', '.')) ?? 0},
-    ];
+    // GABUNGKAN ITEM LAMA DAN ITEM BARU
+    List<Map<String, dynamic>> items = [];
+
+    // 1. Masukkan item yang sudah ada di request awal
+    for (int i = 0; i < widget.setoran.rincianSampah.length; i++) {
+      items.add({
+        "id": widget.setoran.rincianSampah[i].id, // Ini memberitahu Laravel untuk UPDATE
+        "berat_aktual": double.tryParse(_weightControllers[i].text.replaceAll(',', '.')) ?? 0
+      });
+    }
+
+    // 2. Masukkan item tambahan dari driver
+    for (var e in _extraItems) {
+      if (e['jenis_sampah_id'] != null) {
+        double beratEkstra = double.tryParse(e['controller'].text.replaceAll(',', '.')) ?? 0;
+        if (beratEkstra > 0) {
+          items.add({
+            "jenis_sampah_id": e['jenis_sampah_id'], // Ini memberitahu Laravel untuk CREATE baru
+            "berat_aktual": beratEkstra
+          });
+        }
+      }
+    }
 
     bool ok = await _pickupService.updateStatusComplete(
-      id: widget.setoran.id, status: 'selesai',
-      beratFinal: _totalBeratFinal, totalHarga: _totalHargaFinal,
+      id: widget.setoran.id, 
+      status: 'selesai',
+      beratFinal: _totalBeratFinal, 
+      totalHarga: _totalHargaFinal, // Harga akumulasi yang sudah benar
       metode_pembayaran: _selectedPayment,
       catatan: _noteDriverController.text,
-      items: items, foto: _confirmationImage,
+      items: items, 
+      foto: _confirmationImage,
     );
+
     if (mounted) setState(() => _isProcessing = false);
-    if (ok && mounted) { Navigator.pop(context, true); _showSnack("Setoran Berhasil Diselesaikan!", Colors.green); }
+    if (ok && mounted) { 
+      Navigator.pop(context, true); 
+      _showSnack("Setoran Berhasil Diselesaikan!", Colors.green); 
+    }
     else _showSnack("Gagal menyimpan ke server.", Colors.red);
   }
 
@@ -165,7 +189,7 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
     );
   }
 
-  // ─── Header ───────────────────────────────────────────────────────
+  // ─── Widgets Header & Card ────────────────────────────────────────
   Widget _header(bool isProcess) => InkWell(
     onTap: () => Navigator.pop(context),
     borderRadius: BorderRadius.circular(8),
@@ -182,7 +206,6 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
     ),
   );
 
-  // ─── Section label (gaya sama dg SetoranPage) ────────────────────
   Widget _sectionLabel(String t) => Padding(
     padding: const EdgeInsets.only(top: 24, bottom: 8),
     child: Text(t.toUpperCase(),
@@ -190,7 +213,6 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
             color: _muted, letterSpacing: 0.8)),
   );
 
-  // ─── Kartu nasabah ───────────────────────────────────────────────
   Widget _nasabahCard(SetoranModel item) => _card(child: Column(children: [
     _infoRow(Icons.person_outline_rounded,    "Nama Nasabah",  item.nasabahNama),
     _divider(),
@@ -216,7 +238,6 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
 
   Widget _divider() => const Divider(height: 1, color: Color(0xFFF0F4F8));
 
-  // ─── Waste list ──────────────────────────────────────────────────
   Widget _wasteList(bool isProcess) => Column(children: [
     ...List.generate(widget.setoran.rincianSampah.length, (i) {
       var s = widget.setoran.rincianSampah[i];
@@ -333,7 +354,6 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
         style: TextStyle(color: _primary, fontWeight: FontWeight.w600, fontSize: 13)),
   );
 
-  // ─── Foto ────────────────────────────────────────────────────────
   Widget _photoBox() => GestureDetector(
     onTap: _pickImage,
     child: Container(
@@ -344,7 +364,6 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
         border: Border.all(
           color: _confirmationImage == null ? const Color(0xFFAAC4E0) : _primary,
           width: _confirmationImage == null ? 1 : 1.5,
-          // dashed feel via solid with lighter color
         ),
         boxShadow: [BoxShadow(color: _primary.withOpacity(0.05), blurRadius: 8)],
       ),
@@ -361,7 +380,6 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
     ),
   );
 
-  // ─── Payment selector ────────────────────────────────────────────
   Widget _paymentSelector() => Row(children: [
     _payBtn("saldo", "SALDO"),
     _payBtn("cash", "TUNAI"),
@@ -390,7 +408,6 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
     ));
   }
 
-  // ─── Summary card ────────────────────────────────────────────────
   Widget _summaryCard() => Container(
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
@@ -426,7 +443,6 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
             fontSize: big ? 20 : 14)),
       ]);
 
-  // ─── Action buttons ──────────────────────────────────────────────
   Widget _actionButtons(SetoranModel item) => Column(children: [
     if (item.status == 'dijadwalkan')
       _primaryBtn("KONFIRMASI MULAI JALAN", _primary,
@@ -465,7 +481,6 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
         ),
       );
 
-  // ─── Card wrapper ─────────────────────────────────────────────────
   Widget _card({required Widget child}) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     decoration: BoxDecoration(
@@ -477,7 +492,6 @@ class _PetugasDetailSetoranPageState extends State<PetugasDetailSetoranPage> {
     child: child,
   );
 
-  // ─── Helpers ──────────────────────────────────────────────────────
   void _showSnack(String m, Color c) =>
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(m), backgroundColor: c));

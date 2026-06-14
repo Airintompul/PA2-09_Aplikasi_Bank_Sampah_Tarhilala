@@ -16,9 +16,10 @@ class NasabahSetoranController extends Controller
     public function index($nasabah_id)
     {
         try {
-            $data = Setoran::with(['invoice', 'details.jenisSampah'])
+            $data = Setoran::with(['invoice', 'details.jenisSampah', 'jadwal.driver:id,nama'])
                 ->where('nasabah_id', $nasabah_id)
                 ->orderBy('tanggal_pengajuan', 'desc')
+                ->limit(15)
                 ->get();
             return response()->json($data);
         } catch (\Exception $e) {

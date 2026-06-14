@@ -79,7 +79,7 @@ class _RiwayatRewardPageState extends State<RiwayatRewardPage> {
 
   String getCleanImageUrl(String? url) {
     if (url == null) return "";
-    return url.replaceAll("127.0.0.1", "10.0.2.2").replaceAll(" ", "%20");
+    return url.replaceAll("127.0.0.1", "127.0.0.1").replaceAll(" ", "%20");
   }
 
   @override

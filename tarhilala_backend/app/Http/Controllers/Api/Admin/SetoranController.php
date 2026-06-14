@@ -79,31 +79,52 @@ class SetoranController extends Controller
 
             $items = is_string($request->items) ? json_decode($request->items, true) : $request->items;
             $calculatedTotalHarga = 0;
+            $calculatedTotalBerat = 0;
 
-            // 2. PROSES HITUNG HARGA
+            // 2. PROSES HITUNG HARGA (UPDATED: Mendukung Item Baru dari Driver)
             if ($request->status == 'selesai' && !empty($items)) {
                 foreach ($items as $item) {
                     if (isset($item['id'])) {
+                        // UPDATE ITEM LAMA (Dari request nasabah)
                         $detail = DetailSetoran::find($item['id']);
                         if ($detail) {
                             $subtotal = $item['berat_aktual'] * $detail->harga_satuan;
                             $detail->update(['berat' => $item['berat_aktual'], 'subtotal' => $subtotal]);
                             $calculatedTotalHarga += $subtotal;
+                            $calculatedTotalBerat += $item['berat_aktual'];
+                        }
+                    } elseif (isset($item['jenis_sampah_id'])) {
+                        // TAMBAH ITEM BARU (Input tambahan dari driver)
+                        $jenis = JenisSampah::find($item['jenis_sampah_id']);
+                        if ($jenis) {
+                            $subtotal = $item['berat_aktual'] * $jenis->harga_per_kg;
+                            DetailSetoran::create([
+                                'setoran_id'      => $setoran->id,
+                                'jenis_sampah_id' => $jenis->id,
+                                'berat'           => $item['berat_aktual'],
+                                'harga_satuan'    => $jenis->harga_per_kg,
+                                'subtotal'        => $subtotal
+                            ]);
+                            $calculatedTotalHarga += $subtotal;
+                            $calculatedTotalBerat += $item['berat_aktual'];
                         }
                     }
                 }
                 $totalFinalHarga = $calculatedTotalHarga;
+                $totalFinalBerat = $calculatedTotalBerat;
             } elseif ($request->status == 'dibatalkan') {
                 // JIKA BATAL: Paksa harga jadi 0
                 $totalFinalHarga = 0;
+                $totalFinalBerat = 0;
             } else {
                 $totalFinalHarga = $request->total_harga ?? $setoran->total_harga;
+                $totalFinalBerat = $request->berat_final ?? $setoran->berat_final;
             }
 
             // 3. UPDATE HEADER SETORAN (DENGAN LOGIKA PEMBATALAN)
             $updateData = [
                 'status' => $request->status,
-                'berat_final' => ($request->status == 'dibatalkan') ? 0 : ($request->berat_final ?? $setoran->berat_final),
+                'berat_final' => $totalFinalBerat,
                 'total_harga' => $totalFinalHarga,
                 'metode_pembayaran' => $request->metode_pembayaran ?? $setoran->metode_pembayaran,
                 'catatan' => $request->catatan ?? $setoran->catatan,

@@ -8,13 +8,22 @@ import { financeApi } from '@/api';
 const withdrawals = ref([]);
 const isLoading = ref(true);
 const isSubmitting = ref(false);
-const isExporting = ref(false); // State loading untuk ekspor
+const isExporting = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
+
+// State untuk Filter
+const selectedStatus = ref('all');
 
 const openEdit = ref(false);
 const currWD = ref({ id: '', user_id: '', jumlah: '', status: '', metode: '', nomor_tujuan: '', nama_penerima: '' });
 const selectedFile = ref(null);
+
+// --- LOGIC FILTERING ---
+const filteredWithdrawals = computed(() => {
+    if (selectedStatus.value === 'all') return withdrawals.value;
+    return withdrawals.value.filter(wd => wd.status === selectedStatus.value);
+});
 
 // --- LOGIC HIDE NAVBAR & BLUR ---
 const isAnyModalOpen = computed(() => {
@@ -33,47 +42,31 @@ const fetchWithdrawals = async () => {
     }
 };
 
-// =========================================================================
-// LOGIC TOMBOL EKSPOR (FUNGSI UTAMA)
-// =========================================================================
 const handleExport = async () => {
     isExporting.value = true;
     try {
-        // Tembak API Export di Service Gateway (Port 8000)
         const response = await axios.get('/api/admin/penarikan/export', {
             headers: { Authorization: `Bearer ${localStorage.getItem('admin_token')}` },
-            responseType: 'blob', // PENTING: Menerima file sebagai data binary
+            responseType: 'blob',
         });
 
-        // Proses pengunduhan di browser
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
-
-        // Nama file yang akan muncul di komputer admin
         const date = new Date().toLocaleDateString().replace(/\//g, '-');
         link.setAttribute('download', `Laporan-Penarikan-Tanggal-${date}.xlsx`);
-
         document.body.appendChild(link);
         link.click();
-
-        // Bersihkan resource memori
         link.remove();
         window.URL.revokeObjectURL(url);
 
         showSuccess("Laporan Excel berhasil diunduh!");
     } catch (error) {
-    console.log("FULL ERROR:", error);
-
-    if (error.response) {
-        const text = await error.response.data.text();
-        console.log(text);
-    }
+        console.log("FULL ERROR:", error);
     } finally {
         isExporting.value = false;
     }
 };
-// =========================================================================
 
 const onFileChange = (e) => {
     selectedFile.value = e.target.files[0];
@@ -151,21 +144,36 @@ onMounted(() => fetchWithdrawals());
                     </p>
                 </div>
 
-                <!-- TOMBOL EKSPOR: Sekarang berfungsi memanggil handleExport -->
-                <button
-                    @click="handleExport"
-                    :disabled="isExporting"
-                    class="w-full md:w-auto flex items-center justify-center space-x-3 bg-[#41D3BD] hover:opacity-80 text-black px-8 py-4 rounded-2xl md:rounded-[2rem] transition-all shadow-lg font-black uppercase text-xs md:text-sm tracking-widest disabled:opacity-50"
-                >
-                    <i v-if="isExporting" class="fa-solid fa-spinner animate-spin text-lg"></i>
-                    <i v-else class="fa-solid fa-file-excel text-lg"></i>
-                    <span>{{ isExporting ? 'Processing...' : 'Ekspor Laporan' }}</span>
-                </button>
+                <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                    <!-- FILTER DROPDOWN -->
+                    <div class="relative group">
+                        <select v-model="selectedStatus" class="w-full md:w-auto appearance-none bg-[#41D3BD] text-black px-8 py-4 rounded-2xl md:rounded-[2rem] font-black uppercase text-[10px] md:text-xs tracking-widest border-none outline-none cursor-pointer pr-14 shadow-lg group-hover:scale-105 transition-all duration-300">
+                            <option class="bg-white text-black" value="all">SEMUA STATUS</option>
+                            <option class="bg-white text-black" value="menunggu">DAFTAR TUNGGU</option>
+                            <option class="bg-white text-black" value="diproses">SEDANG DIREVIEW</option>
+                            <option class="bg-white text-black" value="selesai">SELESAI</option>
+                            <option class="bg-white text-black" value="ditolak">DITOLAK</option>
+                        </select>
+                        <div class="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-black">
+                            <i class="fa-solid fa-filter"></i>
+                        </div>
+                    </div>
+
+                    <button
+                        @click="handleExport"
+                        :disabled="isExporting"
+                        class="w-full md:w-auto flex items-center justify-center space-x-3 bg-[#41D3BD] hover:opacity-80 text-black px-8 py-4 rounded-2xl md:rounded-[2rem] transition-all shadow-lg font-black uppercase text-xs md:text-sm tracking-widest hover:scale-105 disabled:opacity-50"
+                    >
+                        <i v-if="isExporting" class="fa-solid fa-spinner animate-spin"></i>
+                        <i v-else class="fa-solid fa-file-excel"></i>
+                        <span>{{ isExporting ? 'Proses...' : 'Ekspor' }}</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Alert Notifikasi -->
             <Transition name="fade">
-                <div v-if="successMessage" class="mx-2 md:mx-0 mb-6 p-4 md:p-5 bg-black text-[#41D3BD] rounded-2xl md:rounded-3xl font-black shadow-xl flex items-center border-l-8 border-[#41D3BD] text-xs md:text-sm">
+                <div v-if="successMessage" class="mx-2 md:mx-0 mb-6 p-4 md:p-5 bg-black text-[#41D3BD] rounded-2xl md:rounded-3xl font-black shadow-xl flex items-center border-l-8 border-[#41D3BD] text-xs md:text-sm animate-bounce">
                     <i class="fa-solid fa-circle-check text-xl md:text-2xl mr-4"></i> {{ successMessage }}
                 </div>
             </Transition>
@@ -188,10 +196,10 @@ onMounted(() => fetchWithdrawals());
                                 <div class="inline-block w-8 h-8 border-4 border-[#41D3BD] border-t-transparent rounded-full animate-spin"></div>
                             </td>
                         </tr>
-                        <tr v-else v-for="wd in withdrawals" :key="wd.id" class="hover:bg-gray-50/50 transition-all">
+                        <tr v-else v-for="wd in filteredWithdrawals" :key="wd.id" class="hover:bg-gray-50/50 transition-all duration-300">
                             <td class="pl-12 py-6">
                                 <div class="flex flex-col">
-                                    <span class="font-black text-lg uppercase text-blue-600 tracking-tighter leading-none">Nasabah #{{ wd.user_id }}</span>
+                                    <span class="font-black text-lg uppercase text-black-600 tracking-tighter leading-none">Nasabah #{{ wd.user_id }}</span>
                                     <span class="text-[10px] text-gray-400 font-bold uppercase mt-1">REF: #WD-{{ wd.id }}</span>
                                 </div>
                             </td>
@@ -205,7 +213,7 @@ onMounted(() => fetchWithdrawals());
                                 </div>
                             </td>
                             <td class="px-6 py-6 text-center">
-                                <span :class="getStatusClass(wd.status)" class="px-4 py-1.5 rounded-full font-black text-[9px] uppercase tracking-widest border shadow-sm">
+                                <span :class="getStatusClass(wd.status)" class="px-4 py-1.5 rounded-full font-black text-[9px] uppercase tracking-widest border shadow-sm transition-all duration-300">
                                     {{ wd.status }}
                                 </span>
                             </td>
@@ -213,12 +221,15 @@ onMounted(() => fetchWithdrawals());
                                 <div class="flex justify-end space-x-2">
                                     <button v-if="wd.status === 'menunggu' || wd.status === 'diproses'"
                                             @click="openEditModal(wd)"
-                                            class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm flex items-center justify-center">
+                                            class="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all duration-300 shadow-sm flex items-center justify-center hover:scale-125 hover:rotate-12">
                                         <i class="fa-solid fa-pen-nib"></i>
                                     </button>
                                     <span v-else class="text-[10px] font-black text-gray-300 uppercase italic px-2">Selesai</span>
                                 </div>
                             </td>
+                        </tr>
+                        <tr v-if="filteredWithdrawals.length === 0">
+                            <td colspan="5" class="py-24 text-center font-black text-gray-300 uppercase tracking-widest text-xs">Data tidak ditemukan</td>
                         </tr>
                     </tbody>
                 </table>
@@ -226,7 +237,7 @@ onMounted(() => fetchWithdrawals());
 
             <!-- VIEW MOBILE: CARDS -->
             <div class="lg:hidden space-y-4 px-2 pb-10">
-                <div v-for="wd in withdrawals" :key="wd.id" class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
+                <div v-for="wd in filteredWithdrawals" :key="wd.id" class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
                     <div class="flex justify-between items-start">
                         <div class="min-w-0">
                             <h4 class="font-black text-blue-600 uppercase text-sm truncate pr-2">Nasabah #{{ wd.user_id }}</h4>
@@ -248,12 +259,17 @@ onMounted(() => fetchWithdrawals());
                         </button>
                     </div>
                 </div>
+                <div v-if="filteredWithdrawals.length === 0" class="py-10 text-center font-black text-gray-300 uppercase text-[10px]">Data Kosong</div>
             </div>
         </div>
 
         <!-- MODAL UPDATE -->
         <div v-if="openEdit" class="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 py-8">
             <div class="bg-white rounded-[2.5rem] md:rounded-[3rem] max-w-xl w-full p-6 md:p-10 shadow-2xl relative overflow-y-auto max-h-[92vh] border-[6px] border-slate-900 transition-all duration-300">
+                <button @click="closeModals" class="absolute top-6 right-6 w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-red-500 hover:text-white transition-all duration-300 hover:rotate-90">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
                 <div class="flex flex-col items-center text-center mb-8">
                     <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-4 shadow-inner"><i class="fa-solid fa-money-check-dollar"></i></div>
                     <h3 class="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">Verifikasi Pencairan</h3>
@@ -277,10 +293,9 @@ onMounted(() => fetchWithdrawals());
                         </div>
                     </div>
 
-                    <div class="flex flex-col-reverse md:flex-row justify-end gap-3 pt-6 border-t border-gray-100">
-                        <button @click="closeModals" type="button" class="w-full md:w-auto px-8 py-4 bg-gray-100 rounded-full font-black text-gray-400 uppercase text-[10px]">Batal</button>
+                    <div class="flex flex-col gap-3 pt-6 border-t border-gray-100">
                         <button type="submit" :disabled="isSubmitting"
-                            class="w-full md:w-auto px-10 py-4 bg-slate-900 text-[#41D3BD] rounded-full font-black shadow-lg uppercase text-[10px] hover:scale-105 transition-all">
+                            class="w-full px-10 py-5 bg-slate-900 text-[#41D3BD] rounded-full font-black shadow-lg uppercase text-xs tracking-widest hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-30">
                             {{ isSubmitting ? 'Memproses...' : 'Simpan Status' }}
                         </button>
                     </div>

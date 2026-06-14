@@ -1,6 +1,6 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import api from '@/api';
 
 const rooms = ref([]);
@@ -16,6 +16,25 @@ const fetchRooms = async () => {
         isLoading.value = false;
     }
 };
+
+// LOGIKA BARU: Berdasarkan unread_count
+const sortedRooms = computed(() => {
+    return [...rooms.value].sort((a, b) => {
+        // 1. Yang punya unread_count > 0 (pesan baru) naik ke paling atas
+        const aHasUnread = a.unread_count > 0;
+        const bHasUnread = b.unread_count > 0;
+
+        if (aHasUnread !== bHasUnread) {
+            return aHasUnread ? -1 : 1;
+        }
+
+        // 2. Jika sama-sama dibaca/belum dibaca, urutkan berdasarkan waktu pesan terbaru
+        const timeA = a.messages.length > 0 ? new Date(a.messages[0].waktu_kirim).getTime() : 0;
+        const timeB = b.messages.length > 0 ? new Date(b.messages[0].waktu_kirim).getTime() : 0;
+
+        return timeB - timeA;
+    });
+});
 
 const toggleStatus = async (room) => {
     try {
@@ -33,7 +52,7 @@ onMounted(() => {
 
 <template>
     <AdminLayout>
-        <!-- Header Section: Disamakan dengan Setoran -->
+        <!-- Header Section -->
         <div class="mb-8 md:mb-10 px-2 md:px-0">
             <h2 class="text-2xl md:text-4xl font-black text-gray-900 uppercase tracking-tight leading-none">
                 Pesan <span class="text-[#41D3BD]">Nasabah</span>
@@ -43,7 +62,7 @@ onMounted(() => {
             </p>
         </div>
 
-        <!-- 1. VIEW DESKTOP: TABEL (Identik dengan style Setoran) -->
+        <!-- 1. VIEW DESKTOP -->
         <div class="hidden lg:block bg-white rounded-[2.5rem] shadow-sm border border-gray-100 relative overflow-hidden transition-all duration-300">
             <table class="w-full text-left border-collapse">
                 <thead class="bg-[#41D3BD]">
@@ -60,14 +79,19 @@ onMounted(() => {
                             <div class="inline-block w-8 h-8 border-4 border-[#41D3BD] border-t-transparent rounded-full animate-spin"></div>
                         </td>
                     </tr>
-                    <tr v-else v-for="room in rooms" :key="room.id" class="hover:bg-gray-50/50 transition-all">
+                    <tr v-else v-for="room in sortedRooms" :key="room.id"
+                        :class="['hover:bg-gray-50/50 transition-all', room.unread_count > 0 ? 'bg-blue-50/20' : '']">
                         <td class="pl-12 py-6">
                             <div class="flex items-center space-x-4">
-                                <div class="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-[#41D3BD] uppercase border-2 border-white shadow-sm shrink-0">
-                                    {{ room.nasabah.nama.substring(0, 1) }}
+                                <div class="relative">
+                                    <div class="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-[#41D3BD] uppercase border-2 border-white shadow-sm shrink-0">
+                                        {{ room.nasabah.nama.substring(0, 1) }}
+                                    </div>
+                                    <!-- Indikator Biru berdasarkan unread_count -->
+                                    <div v-if="room.unread_count > 0" class="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></div>
                                 </div>
                                 <div class="flex flex-col">
-                                    <span class="font-black text-lg uppercase text-blue-600 tracking-tighter leading-none">
+                                    <span :class="['font-black text-lg uppercase tracking-tighter leading-none', room.unread_count > 0 ? 'text-blue-600' : 'text-gray-600']">
                                         {{ room.nasabah.nama }}
                                     </span>
                                     <span class="text-[10px] text-gray-400 font-bold uppercase mt-1">Room ID: #CHAT-{{ room.id }}</span>
@@ -104,16 +128,22 @@ onMounted(() => {
             </table>
         </div>
 
-        <!-- 2. VIEW MOBILE: CARDS (Identik dengan style Setoran) -->
+        <!-- 2. VIEW MOBILE -->
         <div class="lg:hidden space-y-4 px-2 pb-10">
-            <div v-for="room in rooms" :key="room.id" class="bg-white p-5 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
+            <div v-for="room in sortedRooms" :key="room.id"
+                :class="['p-5 rounded-[2rem] shadow-sm border space-y-4 transition-all', room.unread_count > 0 ? 'bg-blue-50/20 border-blue-100' : 'bg-white border-gray-100']">
                 <div class="flex justify-between items-start">
                     <div class="flex items-center space-x-3 min-w-0">
-                        <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-black text-[#41D3BD] text-sm border border-white shadow-sm">
-                            {{ room.nasabah.nama.substring(0, 1) }}
+                        <div class="relative">
+                            <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-black text-[#41D3BD] text-sm border border-white shadow-sm">
+                                {{ room.nasabah.nama.substring(0, 1) }}
+                            </div>
+                            <div v-if="room.unread_count > 0" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full border-2 border-white"></div>
                         </div>
                         <div class="min-w-0">
-                            <h4 class="font-black text-blue-600 uppercase text-sm truncate pr-2 tracking-tighter">{{ room.nasabah.nama }}</h4>
+                            <h4 :class="['font-black uppercase text-sm truncate pr-2 tracking-tighter', room.unread_count > 0 ? 'text-blue-600' : 'text-gray-600']">
+                                {{ room.nasabah.nama }}
+                            </h4>
                             <p class="text-[9px] font-bold text-gray-400 uppercase">#CHAT-{{ room.id }}</p>
                         </div>
                     </div>
@@ -123,7 +153,7 @@ onMounted(() => {
                     </span>
                 </div>
 
-                <div class="bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                <div class="bg-white/50 p-3 rounded-2xl border border-gray-100">
                     <p class="text-[10px] text-gray-600 font-bold italic line-clamp-2" v-if="room.messages.length">
                         "{{ room.messages[0].pesan }}"
                     </p>
@@ -147,7 +177,3 @@ onMounted(() => {
         </div>
     </AdminLayout>
 </template>
-
-<style scoped>
-.transition-all { transition: all 0.3s ease-in-out; }
-</style>

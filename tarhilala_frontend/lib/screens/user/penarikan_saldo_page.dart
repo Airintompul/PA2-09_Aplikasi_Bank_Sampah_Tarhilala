@@ -156,7 +156,7 @@ class _TransaksiPageState extends State<TransaksiPage> {
   }
 
   void _showBuktiDialog(String imagePath) {
-    String imageUrl = "http://10.0.2.2:8001/storage/$imagePath";
+    String imageUrl = "http://127.0.0.1:8001/storage/$imagePath";
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

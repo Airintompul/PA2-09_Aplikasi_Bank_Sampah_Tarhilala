@@ -220,7 +220,7 @@ onMounted(() => fetchRewards());
                             </td>
                             <td class="px-6 py-6">
                                 <div class="flex flex-col">
-                                    <span class="font-black text-lg uppercase text-blue-600 tracking-tighter leading-none">{{ reward.nama_reward }}</span>
+                                    <span class="font-black text-lg uppercase text-black-600 tracking-tighter leading-none">{{ reward.nama_reward }}</span>
                                     <span class="text-[10px] text-gray-400 font-bold uppercase mt-1">ID: #RWD-{{ reward.id }}</span>
                                 </div>
                             </td>

@@ -14,10 +14,16 @@ class MessageController extends Controller
      */
     public function index()
     {
-        // Mengambil room, nama nasabah, dan hanya pesan terakhir untuk preview
+        // Kita tambahkan withCount untuk menghitung pesan yang is_read-nya false
         $rooms = ChatRoom::with(['nasabah:id,nama', 'messages' => function($q) {
             $q->latest('waktu_kirim')->limit(1);
-        }])->orderBy('created_at', 'desc')->get();
+        }])
+        ->withCount(['messages as unread_count' => function($q) {
+            // Hitung pesan yang BELUM dibaca DAN pengirimnya BUKAN admin yang sedang login
+            $q->where('is_read', false)
+            ->where('pengirim_id', '!=', auth()->id());
+        }])
+        ->get();
 
         return response()->json([
             'status' => 'success',

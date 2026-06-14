@@ -3,9 +3,10 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/setoran_model.dart';
+import '../services/auth_service.dart'; // Pastikan import AuthService benar
 
 class PickupService {
-  // Gunakan IP Emulator
+  // Gunakan IP Emulator atau IP Local
   static const String baseUrl = "http://10.0.2.2:8000/api";
 
   // Helper Token
@@ -79,7 +80,7 @@ class PickupService {
   }
 
   // ============================================================
-  // 4. UPDATE STATUS SIMPLE
+  // 4. UPDATE STATUS SIMPLE (Mulai Jalan / Batal)
   // ============================================================
   Future<bool> updateStatus(int id, String status) async {
     try {
@@ -101,21 +102,23 @@ class PickupService {
   }
 
   // ============================================================
-  // 5. UPDATE FINAL (CORE FINANCE) - Menggunakan metode_pembayaran
+  // 5. UPDATE FINAL (PROSES SIMPAN & SELESAIKAN)
   // ============================================================
   Future<bool> updateStatusComplete({
     required int id,
     required String status,
     required double beratFinal,
     required double totalHarga,
-    required String metode_pembayaran, // Nama parameter dikembalikan
+    required String metode_pembayaran,
     required String catatan,
-    required List<Map<String, dynamic>> items,
+    required List<Map<String, dynamic>> items, // Berisi gabungan Item ID dan JenisSampahID
     File? foto,
   }) async {
     try {
       String? token = await _getToken();
       var uri = Uri.parse("$baseUrl/admin/setoran/$id");
+      
+      // Menggunakan MultipartRequest karena ada pengiriman File Foto
       var request = http.MultipartRequest('POST', uri);
 
       request.headers.addAll({
@@ -123,20 +126,27 @@ class PickupService {
         "Accept": "application/json",
       });
 
-      request.fields['_method'] = 'PUT'; // Spoofing Laravel
+      // Laravel memerlukan spoofing _method PUT jika menggunakan MultipartRequest (POST)
+      request.fields['_method'] = 'PUT'; 
       request.fields['status'] = status;
       request.fields['berat_final'] = beratFinal.toString();
       request.fields['total_harga'] = totalHarga.toString();
       request.fields['metode_pembayaran'] = metode_pembayaran;
       request.fields['catatan'] = catatan;
+      
+      // SANGAT PENTING: Mengirim List Item sebagai JSON String
       request.fields['items'] = jsonEncode(items);
 
+      // Mengirim Foto Timbangan (Field name sesuaikan dengan backend)
       if (foto != null) {
-        request.files.add(await http.MultipartFile.fromPath('bukti_transfer', foto.path));
+        request.files.add(await http.MultipartFile.fromPath('foto', foto.path));
       }
 
-      var streamed = await request.send();
-      var response = await http.Response.fromStream(streamed);
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      print("DEBUG SERVER RESPONSE: ${response.body}"); // Cek jika ada error di console
+
       return response.statusCode == 200;
     } catch (e) {
       print("updateStatusComplete ERROR: $e");
